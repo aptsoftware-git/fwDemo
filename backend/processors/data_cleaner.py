@@ -118,31 +118,43 @@ def clean_dataframe(df: pd.DataFrame, remove_duplicates: bool = True,
     # 3. Standardize column names (strip whitespace, handle special chars)
     cleaned_df.columns = [str(col).strip() for col in cleaned_df.columns]
     
+    # Define columns that should always remain as text (never convert to numeric)
+    text_only_columns = [
+        'Category (Make & Type)', 'Make & Eqpt', 'Category', 
+        'Remarks', 'Remark', 'Comments', 'Comment',
+        'Nomenclature', 'Description', 'Type', 'Make'
+    ]
+    
     # 4. Standardize values in each column
     for col in cleaned_df.columns:
+        # Skip numeric conversion for text-only columns
+        is_text_only = any(text_col.lower() in col.lower() for text_col in text_only_columns)
+        
         # Try to infer the column type
         sample_values = cleaned_df[col].dropna().head(10)
         
         if len(sample_values) > 0:
-            # Check if column contains numeric data
-            try:
-                # Clean special characters from numeric values first
-                numeric_series = cleaned_df[col].apply(extract_numeric_value)
-                # If more than 50% of non-null values are numeric, treat as number
-                if numeric_series.notna().sum() / cleaned_df[col].notna().sum() > 0.5:
-                    cleaned_df[col] = numeric_series
-                    continue
-            except:
-                pass
+            # Check if column contains numeric data (skip for text-only columns)
+            if not is_text_only:
+                try:
+                    # Clean special characters from numeric values first
+                    numeric_series = cleaned_df[col].apply(extract_numeric_value)
+                    # If more than 50% of non-null values are numeric, treat as number
+                    if numeric_series.notna().sum() / cleaned_df[col].notna().sum() > 0.5:
+                        cleaned_df[col] = numeric_series
+                        continue
+                except:
+                    pass
             
-            # Check if column contains dates
-            try:
-                date_series = pd.to_datetime(cleaned_df[col], errors='coerce', format='mixed')
-                if date_series.notna().sum() / cleaned_df[col].notna().sum() > 0.5:
-                    cleaned_df[col] = date_series
-                    continue
-            except:
-                pass
+            # Check if column contains dates (skip for text-only columns)
+            if not is_text_only:
+                try:
+                    date_series = pd.to_datetime(cleaned_df[col], errors='coerce', format='mixed')
+                    if date_series.notna().sum() / cleaned_df[col].notna().sum() > 0.5:
+                        cleaned_df[col] = date_series
+                        continue
+                except:
+                    pass
             
             # Otherwise, treat as text and standardize
             cleaned_df[col] = cleaned_df[col].apply(lambda x: standardize_value(x, 'text'))
