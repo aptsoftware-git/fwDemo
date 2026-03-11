@@ -1,0 +1,10 @@
+/* Additional styles for App component */
+
+.App {
+  min-height: 100vh;
+}
+
+.App h3 {
+  font-size: 18px;
+  font-weight: 600;
+}

@@ -1,0 +1,134 @@
+{
+  "sheet_types": {
+    "APPX_A_BVEH": {
+      "name": "B Vehicles (Transport)",
+      "description": "Soft-skinned transport vehicles including trucks, jeeps, and utility vehicles",
+      "columns": {
+        "Ser No": "Sequential order of entries",
+        "Category (Make & Type)": "Manufacturer and specific model/capacity",
+        "Auth (UE)": "Authorized (Unit Establishment) - Official number permitted by regulation",
+        "Held (UH)": "Held (Unit Holding) - Actual number in inventory",
+        "MUA": "Minor Under Activity - Light routine maintenance",
+        "OH": "Overhaul - Major reconditioning",
+        "R4": "Repair Level 4 - Specialized workshop repairs",
+        "Total NMC": "Total Non-Mission Capable - Sum of unserviceable units",
+        "FMC": "Fully Mission Capable - Units 100% fit for deployment",
+        "Remarks": "VOR/EOA details and notes"
+      },
+      "key_metrics": {
+        "Serviceability %": "(FMC / Held) × 100",
+        "Availability %": "((Held - Total NMC) / Auth) × 100"
+      }
+    },
+    "APPX_A_CVEH": {
+      "name": "C Vehicles (Engineering Plant)",
+      "description": "Heavy engineering plant equipment including dozers, excavators, graders",
+      "columns": {
+        "Ser No": "Sequential order of entries",
+        "Category (Make & Type)": "Manufacturer and specific model",
+        "Auth (UE)": "Authorized units",
+        "Held (UH)": "Actual inventory",
+        "MUA": "Minor Under Activity",
+        "OH": "Overhaul",
+        "R4": "Repair Level 4",
+        "Total NMC": "Total Non-Mission Capable",
+        "FMC": "Fully Mission Capable",
+        "Remarks": "Status notes"
+      },
+      "key_metrics": {
+        "Serviceability %": "(FMC / Held) × 100",
+        "Readiness Ratio": "FMC / Auth"
+      }
+    },
+    "ARMT": {
+      "name": "Armament",
+      "description": "Artillery, mortars, and heavy weapon systems",
+      "columns": {
+        "Ser No": "Sequential order",
+        "Make & Eqpt": "Specific model and nomenclature",
+        "Auth (UE)": "Authorized quantity",
+        "Held (UH)": "Actual inventory",
+        "Eng/ Brl": "Engineering/Barrel failures due to wear-out",
+        "MUA": "Minor Under Activity",
+        "Spares": "Grounded due to lack of spare parts",
+        "OH": "Overhaul status",
+        "MR": "Medium Repair",
+        "FR": "Field Repair",
+        "R4": "Repair Level 4",
+        "OBE": "Out of Bounds - Beyond Economic Repair",
+        "Total NMC (Nos)": "Total Non-Mission Capable count",
+        "PMC (Nos) (Due to OH)": "Partially Mission Capable - Minor defects",
+        "FMC": "Fully Mission Capable count",
+        "NMC%": "Non-Mission Capable percentage",
+        "PMC%": "Partially Mission Capable percentage",
+        "FMC%": "Fully Mission Capable percentage - PRIMARY READINESS METRIC",
+        "Avl%": "Availability percentage (FMC% + PMC%)",
+        "Remarks (To incl present loc of eqpt EOA)": "Detailed status and location"
+      },
+      "key_metrics": {
+        "Combat Readiness": "FMC %",
+        "Total Availability": "Avl %",
+        "Repair Load": "OH + MR + FR + R4 count"
+      }
+    },
+    "SA": {
+      "name": "Small Arms",
+      "description": "Individual and crew-served firearms including rifles, machine guns, pistols",
+      "columns": {
+        "Ser No": "Sequential order",
+        "Make & Eqpt": "Specific weapon model",
+        "Auth (UE)": "Authorized quantity",
+        "Held (UH)": "Actual inventory",
+        "Eng/ Brl": "Barrel wear or structural failures",
+        "MUA": "Minor Under Activity",
+        "Spares": "Grounded due to unavailable parts",
+        "Under OH /MR/R4/ FR/ Base Repair": "Status in repair facilities",
+        "OBE": "Out of Bounds - Beyond Economic Repair",
+        "Total NMC (Nos)": "Total Non-Mission Capable",
+        "PMC (Nos) (Due to OH)": "Partially Mission Capable",
+        "FMC": "Fully Mission Capable count",
+        "NMC%": "Non-Mission Capable percentage",
+        "PMC%": "Partially Mission Capable percentage",
+        "FMC%": "Fully Mission Capable percentage",
+        "Avl%": "Availability percentage",
+        "Remarks (To incl present loc of eqpt EOA)": "Status details"
+      },
+      "key_metrics": {
+        "Combat Readiness": "FMC %",
+        "Spare Parts Impact": "Spares count",
+        "Barrel Life Management": "Eng/Brl count"
+      }
+    }
+  },
+  "common_abbreviations": {
+    "FMN": "Formation - Unit designation",
+    "EME": "Electronics and Mechanical Engineers - Maintenance corps",
+    "EOA": "Equipment On Account - Official inventory",
+    "VOR": "Vehicle Off Road - Unserviceable vehicle",
+    "UE": "Unit Establishment - Authorized strength",
+    "UH": "Unit Holding - Actual inventory",
+    "MUA": "Minor Under Activity - Light maintenance",
+    "OH": "Overhaul - Major reconditioning",
+    "R4": "Repair Level 4 - Workshop repair",
+    "NMC": "Non-Mission Capable - Unserviceable",
+    "FMC": "Fully Mission Capable - Combat ready",
+    "PMC": "Partially Mission Capable - Limited capability",
+    "OBE": "Out of Bounds - Beyond repair"
+  },
+  "validation_rules": {
+    "basic": [
+      "Held ≤ Auth (cannot hold more than authorized)",
+      "FMC ≤ Held (cannot have more ready than held)"
+    ],
+    "calculations": {
+      "NMC %": "(NMC / Held) × 100",
+      "FMC %": "(FMC / Held) × 100",
+      "Avl %": "((FMC + PMC) / Held) × 100"
+    }
+  },
+  "critical_thresholds": {
+    "RED_ALERT": "FMC% < 50% - Critical readiness issue",
+    "AMBER_ALERT": "50% ≤ FMC% < 70% - Below optimal",
+    "GREEN_STATUS": "FMC% ≥ 70% - Acceptable readiness"
+  }
+}
