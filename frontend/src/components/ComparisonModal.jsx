@@ -10,36 +10,48 @@ import { apiClient } from '../api/client';
 const DEFAULT_PROMPT_TEMPLATE = `You are a Senior Military Logistics Analyst. You are provided with two datasets representing the same equipment type from two different time periods.
 
 METADATA: {metadata}
+
+{overall_stats}
+
+DETAILED CATEGORY BREAKDOWN:
 PREVIOUS PERIOD DATA: {previous_data}
 CURRENT PERIOD DATA: {current_data}
 
+---
+
 Provide a **Comparative Readiness & Trend Analysis** for the **{sheet_type}** category:
 
-## 1. Inventory Flux 
-- Calculate the net change in Held (UH) vs Authorized (UE) quantities
-- Identify if the formation is "Gaining Ground" (increasing inventory) or "Depleting" (decreasing inventory)
-- Highlight any significant gaps between authorized and held quantities
+{section1_answer}
 
-## 2. Serviceability Delta
-- Compare the Fully Mission Capable (FMC) rates between the two periods
-- Calculate the percentage point change in mission readiness
-- Highlight if technical health is **Improving** or **Deteriorating**
+## 2. Inventory Analysis 
+- Reference the Total Held values from Section 1 above
+- Calculate: Current Total Held - Previous Total Held = Net Change
+- Identify if the formation is "Gaining Ground" (positive change) or "Depleting" (negative change)
+- Review the detailed data to identify significant gaps between Auth (UE) and Held (UH) for specific equipment types
 
-## 3. Maintenance Backlog Evolution
-- Analyze the "Remarks" and "Total Non-Functional" columns from both periods
+## 3. Serviceability Trends
+- Reference the exact FMC% change from Section 1 above
+- Analyze the detailed data to identify which specific equipment subcategories (B1, B2, B3, etc.) showed notable changes
+- Identify 2-3 equipment types that improved and 2-3 that degraded based on FMC values and remarks
+- Assess operational impact of the overall FMC% trend shown in Section 1
+
+## 4. Maintenance & Repair Pipeline
+- Analyze the "Remarks" and "Total NMC (Nos)" columns from the detailed data
 - Identify recurring issues (e.g., Engine/Chassis defects, structural problems)
-- Determine if previous issues have been **Resolved** or are **Persisting**
-- List any new critical failure patterns that appeared in the current period
+- Determine if previous issues are **Resolved** or **Persisting**  
+- List any new critical failure patterns
+- Note: The overall readiness change from Section 1 indicates the net effect of maintenance activities
 
-## 4. Logistical Pipeline Efficiency
-- Compare the number of "Demanded" items between periods
-- Assess if the formation is clearing the backlog of parts or if the supply chain is slowing down
-- Identify high-demand items or long-lead components
+## 5. Logistical Efficiency
+- Review "MUA" and "Demanded" mentions in the Remarks column
+- Assess if demand for parts is increasing or decreasing
+- Identify high-demand components (engines, chassis parts, etc.)
+- Comment on whether supply chain is keeping pace with demands
 
-## 5. Executive Conclusion
-- Provide an overall **Status Rating**: **Improved** / **Stable** / **Degraded**
-- Give one primary actionable recommendation to improve readiness for the coming period
-- Highlight the most critical vulnerability that requires immediate attention
+## 6. Executive Summary
+- Provide one primary actionable recommendation to improve readiness
+- Highlight the most critical vulnerability requiring immediate attention
+- Connect your recommendations to the overall readiness trend shown in Section 1
 
 Format your response in clear markdown with proper headings and bullet points.`;
 
@@ -175,42 +187,164 @@ const ComparisonModal = ({ isOpen, onClose, tag1, tag2, onSubmit }) => {
               <h3>Comparison Result</h3>
               
               {readinessData.length > 0 && (
-                <div className="chart-container" style={{ marginBottom: '30px' }}>
-                  <h4>Formation Readiness Comparison (FMC%)</h4>
-                  <ResponsiveContainer width="100%" height={350}>
-                    <LineChart data={readinessData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="formation" 
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                      />
-                      <YAxis 
-                        label={{ value: 'FMC Readiness (%)', angle: -90, position: 'insideLeft' }}
-                        domain={[0, 100]}
-                      />
-                      <Tooltip formatter={(value) => value !== null ? `${value.toFixed(2)}%` : 'N/A'} />
-                      <Legend />
-                      <Line 
-                        type="monotone" 
-                        dataKey="previous_readiness" 
-                        stroke="#8884d8" 
-                        strokeWidth={2}
-                        name={`Previous Period (${tag1})`}
-                        connectNulls
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="current_readiness" 
-                        stroke="#82ca9d" 
-                        strokeWidth={2}
-                        name={`Current Period (${tag2})`}
-                        connectNulls
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+                <>
+                  <div className="chart-container" style={{ marginBottom: '30px' }}>
+                    <h4>Formation Readiness Comparison (FMC%)</h4>
+                    <ResponsiveContainer width="100%" height={350}>
+                      <LineChart data={readinessData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis 
+                          dataKey="formation" 
+                          angle={-45}
+                          textAnchor="end"
+                          height={80}
+                        />
+                        <YAxis 
+                          label={{ value: 'FMC Readiness (%)', angle: -90, position: 'insideLeft' }}
+                          domain={[0, 100]}
+                        />
+                        <Tooltip formatter={(value) => value !== null ? `${value.toFixed(2)}%` : 'N/A'} />
+                        <Legend />
+                        <Line 
+                          type="monotone" 
+                          dataKey="previous_readiness" 
+                          stroke="#8884d8" 
+                          strokeWidth={2}
+                          name={`Previous Period (${tag1})`}
+                          connectNulls
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="current_readiness" 
+                          stroke="#82ca9d" 
+                          strokeWidth={2}
+                          name={`Current Period (${tag2})`}
+                          connectNulls
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="readiness-table-container" style={{ marginBottom: '30px', overflowX: 'auto' }}>
+                    <h4>Detailed Readiness Summary</h4>
+                    <table className="readiness-table" style={{
+                      width: '100%',
+                      borderCollapse: 'collapse',
+                      fontSize: '13px'
+                    }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f5f5f5' }}>
+                          <th style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'left' }}>Formation</th>
+                          <th style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'center' }} colSpan="3">Previous Period ({tag1})</th>
+                          <th style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'center' }} colSpan="3">Current Period ({tag2})</th>
+                          <th style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'center' }}>Change</th>
+                        </tr>
+                        <tr style={{ backgroundColor: '#fafafa' }}>
+                          <th style={{ padding: '8px', border: '1px solid #ddd' }}></th>
+                          <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>Total FMC</th>
+                          <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>Total Held</th>
+                          <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>FMC%</th>
+                          <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>Total FMC</th>
+                          <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>Total Held</th>
+                          <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>FMC%</th>
+                          <th style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>Δ FMC%</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {readinessData.map((row, idx) => {
+                          const change = row.previous_readiness !== null && row.current_readiness !== null
+                            ? row.current_readiness - row.previous_readiness
+                            : null;
+                          const changeColor = change !== null 
+                            ? (change > 0 ? '#28a745' : change < 0 ? '#dc3545' : '#6c757d')
+                            : '#6c757d';
+                          
+                          return (
+                            <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#f9f9f9' }}>
+                              <td style={{ padding: '8px', border: '1px solid #ddd', fontWeight: 'bold' }}>{row.formation}</td>
+                              <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
+                                {row.previous_fmc !== null ? Math.round(row.previous_fmc) : 'N/A'}
+                              </td>
+                              <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
+                                {row.previous_held !== null ? Math.round(row.previous_held) : 'N/A'}
+                              </td>
+                              <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
+                                {row.previous_readiness !== null ? `${row.previous_readiness.toFixed(2)}%` : 'N/A'}
+                              </td>
+                              <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
+                                {row.current_fmc !== null ? Math.round(row.current_fmc) : 'N/A'}
+                              </td>
+                              <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
+                                {row.current_held !== null ? Math.round(row.current_held) : 'N/A'}
+                              </td>
+                              <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
+                                {row.current_readiness !== null ? `${row.current_readiness.toFixed(2)}%` : 'N/A'}
+                              </td>
+                              <td style={{ 
+                                padding: '8px', 
+                                border: '1px solid #ddd', 
+                                textAlign: 'center',
+                                fontWeight: 'bold',
+                                color: changeColor
+                              }}>
+                                {change !== null ? `${change > 0 ? '+' : ''}${change.toFixed(2)}%` : 'N/A'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {/* Totals row */}
+                        {(() => {
+                          const prevFmcTotal = readinessData.reduce((sum, row) => sum + (row.previous_fmc || 0), 0);
+                          const prevHeldTotal = readinessData.reduce((sum, row) => sum + (row.previous_held || 0), 0);
+                          const currFmcTotal = readinessData.reduce((sum, row) => sum + (row.current_fmc || 0), 0);
+                          const currHeldTotal = readinessData.reduce((sum, row) => sum + (row.current_held || 0), 0);
+                          
+                          const prevOverallReadiness = prevHeldTotal > 0 ? (prevFmcTotal / prevHeldTotal) * 100 : null;
+                          const currOverallReadiness = currHeldTotal > 0 ? (currFmcTotal / currHeldTotal) * 100 : null;
+                          const overallChange = prevOverallReadiness !== null && currOverallReadiness !== null 
+                            ? currOverallReadiness - prevOverallReadiness 
+                            : null;
+                          const changeColor = overallChange !== null 
+                            ? (overallChange > 0 ? '#28a745' : overallChange < 0 ? '#dc3545' : '#6c757d')
+                            : '#6c757d';
+                          
+                          return (
+                            <tr style={{ backgroundColor: '#e8e8e8', fontWeight: 'bold' }}>
+                              <td style={{ padding: '8px', border: '1px solid #ddd', fontWeight: 'bold' }}>TOTAL</td>
+                              <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
+                                {Math.round(prevFmcTotal)}
+                              </td>
+                              <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
+                                {Math.round(prevHeldTotal)}
+                              </td>
+                              <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
+                                {prevOverallReadiness !== null ? `${prevOverallReadiness.toFixed(2)}%` : 'N/A'}
+                              </td>
+                              <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
+                                {Math.round(currFmcTotal)}
+                              </td>
+                              <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
+                                {Math.round(currHeldTotal)}
+                              </td>
+                              <td style={{ padding: '8px', border: '1px solid #ddd', textAlign: 'center' }}>
+                                {currOverallReadiness !== null ? `${currOverallReadiness.toFixed(2)}%` : 'N/A'}
+                              </td>
+                              <td style={{ 
+                                padding: '8px', 
+                                border: '1px solid #ddd', 
+                                textAlign: 'center',
+                                fontWeight: 'bold',
+                                color: changeColor
+                              }}>
+                                {overallChange !== null ? `${overallChange > 0 ? '+' : ''}${overallChange.toFixed(2)}%` : 'N/A'}
+                              </td>
+                            </tr>
+                          );
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
 
               <div className="summary-text markdown-preview">
