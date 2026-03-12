@@ -1,0 +1,23 @@
+Background with nohup (runs in background, logs to files)
+Start backend:
+cd /home/admin1234/anu/fortWilliam/fwDemo/backend
+nohup venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000 > ../logs/backend.log 2>&1 &
+
+Start frontend:
+cd /home/admin1234/anu/fortWilliam/fwDemo/frontend
+nohup npm run dev -- --host 0.0.0.0 --port 4000 > ../logs/frontend.log 2>&1 &
+
+View logs:
+tail -f ~/anu/fortWilliam/fwDemo/logs/backend.log
+tail -f ~/anu/fortWilliam/fwDemo/logs/frontend.log
+
+Stop services:
+pkill -f "uvicorn main:app"
+pkill -f "npm run dev"
+
+Other command
+lsof -ti:4000
+lsof -ti:4000 | xargs kill -9
+
+/home/admin1234/anu/fortWilliam/fwDemo/data/FRS_filtered/Dec
+Fmn December 2025

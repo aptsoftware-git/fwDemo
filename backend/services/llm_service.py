@@ -597,7 +597,13 @@ def compare_datasets(tag1: str, tag2: str, sheet_type: str,
 
 ---
 
-**IMPORTANT:** The above statistics represent the AGGREGATE totals across all formations for the {sheet_type} category. Your analysis should align with these overall figures. The detailed row data below shows the breakdown by individual equipment types/subcategories.
+**IMPORTANT INSTRUCTIONS FOR ANALYSIS:**
+1. The above OVERALL statistics are the AGGREGATE totals across ALL formations - these are authoritative and MUST match your Section 1 summary
+2. The detailed row data below shows breakdown by equipment subcategories (e.g., B1, B2, B3 for B Veh; D1, D2 for ARMT)
+3. For Inventory Analysis (Section 2): Compare SAME categories between Previous and Current periods (e.g., "B1: Previous Held=50, Current Held=55, Change=+5")
+4. DO NOT analyze Auth vs Held gaps - focus on Period-to-Period changes only
+5. All numerical values MUST come directly from the provided data - do NOT calculate or infer
+6. When citing specific equipment types, always show both Previous and Current values for comparison
 """
     
     # Create pre-filled Section 1 answer to prevent LLM from recalculating

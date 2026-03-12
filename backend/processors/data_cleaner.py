@@ -283,18 +283,16 @@ def standardize_column_name(col_name: str) -> str:
     elif 'held' in lower:
         return 'Held (UH)'
     
-    # Eng/Barrel column (ARMT specific)
-    elif 'eng' in lower and 'brl' in lower:
-        return 'Eng/ Brl'
-    elif lower in ['eng', 'eng/', 'eng /', 'eng /']:
+    # Eng/Barrel column (ARMT specific) - only convert if it contains 'brl' or 'barrel'
+    elif 'eng' in lower and ('brl' in lower or 'barrel' in lower):
         return 'Eng/ Brl'
     
     # MUA column
     elif 'mua' in lower:
         return 'MUA'
     
-    # Spares column (ARMT specific)
-    elif 'spare' in lower:
+    # Spares column (ARMT specific) - only convert if it contains full word 'spare' or 'spares'
+    elif 'spare' in lower and ('spares' in lower or lower == 'spare'):
         return 'Spares'
     
     # Combined OH/MR/R4/FR column (SA variant)
@@ -305,11 +303,11 @@ def standardize_column_name(col_name: str) -> str:
     elif lower in ['oh', 'o h', 'o/h']:
         return 'OH'
     
-    # MR column (ARMT specific)
+    # MR column (ARMT specific) - keep as-is for now
     elif lower in ['mr', 'm r', 'm/r']:
         return 'MR'
     
-    # FR column (ARMT specific)
+    # FR column (ARMT specific) - keep as-is for now
     elif lower in ['fr', 'f r', 'f/r']:
         return 'FR'
     
@@ -317,7 +315,7 @@ def standardize_column_name(col_name: str) -> str:
     elif lower in ['r4', 'r 4', 'r-4']:
         return 'R4'
     
-    # OBE column (ARMT specific)
+    # OBE column (ARMT specific) - keep as-is for now
     elif lower in ['obe', 'o b e', 'o/b/e']:
         return 'OBE'
     
@@ -391,8 +389,9 @@ def aggregate_by_category(row_data_list: List[Dict[str, Any]],
     
     # Detect which type of sheet we're aggregating based on available columns
     # Check for ARMT-specific columns to identify sheet type
-    armt_indicators = ['Eng/ Brl', 'Spares', 'MR', 'FR', 'OBE', 'PMC (Nos) (Due to OH)', 'NMC%', 'PMC%', 'Avl%']
-    is_armt = any(col in df.columns for col in armt_indicators)
+    # ARMT sheets have 'Make & Eqpt' column, while B Veh/C Veh have 'Category (Make & Type)'
+    # This is the most reliable way to distinguish them since both share many other columns (MR, FR, OBE, etc.)
+    is_armt = 'Make & Eqpt' in df.columns or ('Eng/ Brl' in df.columns or 'Eng/   Brl' in df.columns)
     
     # Determine category column based on sheet type
     if is_armt:

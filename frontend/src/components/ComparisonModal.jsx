@@ -27,7 +27,7 @@ Provide a **Comparative Readiness & Trend Analysis** for the **{sheet_type}** ca
 - Reference the Total Held values from Section 1 above
 - Calculate: Current Total Held - Previous Total Held = Net Change
 - Identify if the formation is "Gaining Ground" (positive change) or "Depleting" (negative change)
-- Review the detailed data to identify significant gaps between Auth (UE) and Held (UH) for specific equipment types
+- Analyze specific equipment categories that show significant changes in Held (UH) between previous and current periods (e.g., B1, B2, B3 in B Veh; C20, C63, C70 in C Veh; D1, D2 in ARMT)
 
 ## 3. Serviceability Trends
 - Reference the exact FMC% change from Section 1 above
@@ -52,6 +52,12 @@ Provide a **Comparative Readiness & Trend Analysis** for the **{sheet_type}** ca
 - Provide one primary actionable recommendation to improve readiness
 - Highlight the most critical vulnerability requiring immediate attention
 - Connect your recommendations to the overall readiness trend shown in Section 1
+
+**IMPORTANT INSTRUCTIONS:**
+1. All numerical values (Auth, Held, FMC, Total NMC, etc.) MUST be directly extracted from the provided data - do NOT calculate or infer values
+2. When comparing periods, always reference BOTH previous and current values for the same category (e.g., "B1: Previous Held=50, Current Held=45, Change=-5")
+3. Focus inventory analysis on changes between periods, NOT on Auth vs Held gaps
+4. Do NOT add concluding statements like "By implementing recommendations..." - end with Section 6
 
 Format your response in clear markdown with proper headings and bullet points.`;
 
