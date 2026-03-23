@@ -27,9 +27,10 @@ function App() {
   useEffect(() => {
     if (selectedTag) {
       loadUnits(selectedTag);
-      loadData(selectedTag, 'All');
+      // Data will be loaded automatically when selectedUnit is set by loadUnits
     } else {
       setUnits([]);
+      setSelectedUnit('All');
       setData(null);
     }
   }, [selectedTag]);
@@ -54,7 +55,8 @@ function App() {
     try {
       const result = await getUnits(tag);
       setUnits(result);
-      setSelectedUnit('All');
+      // Set default to first formation instead of 'All'
+      setSelectedUnit(result.length > 0 ? result[0] : 'All');
     } catch (err) {
       console.error('Failed to load units:', err);
       setUnits([]);

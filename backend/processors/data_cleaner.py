@@ -122,7 +122,7 @@ def clean_dataframe(df: pd.DataFrame, remove_duplicates: bool = True,
     text_only_columns = [
         'Category (Make & Type)', 'Make & Eqpt', 'Category', 
         'Remarks', 'Remark', 'Comments', 'Comment',
-        'Nomenclature', 'Description', 'Type', 'Make'
+        'Nomenclature', 'Description', 'Type', 'Make', 'Units'
     ]
     
     # 4. Standardize values in each column
@@ -275,6 +275,10 @@ def standardize_column_name(col_name: str) -> str:
         # B veh/C veh: "Category (Make & Type)"
         return 'Category (Make & Type)'
     
+    # Units column (A veh specific)
+    elif lower in ['units', 'unit']:
+        return 'Units'
+    
     # Auth column
     elif 'auth' in lower:
         return 'Auth (UE)'
@@ -329,13 +333,13 @@ def standardize_column_name(col_name: str) -> str:
     
     # Percentage columns (ARMT specific) - check these BEFORE non-percentage versions
     elif 'fmc' in lower and '%' in normalized:
-        return 'FMC%'
+        return 'FMC %'
     elif 'nmc' in lower and '%' in normalized:
-        return 'NMC%'
+        return 'NMC %'
     elif 'pmc' in lower and '%' in normalized:
-        return 'PMC%'
+        return 'PMC %'
     elif 'avl' in lower and '%' in normalized:
-        return 'Avl%'
+        return 'Avl %'
     
     # FMC column (count, not percentage) - check AFTER FMC%
     elif 'fmc' in lower:
@@ -390,7 +394,14 @@ def aggregate_by_category(row_data_list: List[Dict[str, Any]],
     # Detect which type of sheet we're aggregating based on available columns
     # Check for ARMT-specific columns to identify sheet type
     # ARMT sheets have 'Make & Eqpt' column, while B Veh/C Veh have 'Category (Make & Type)'
-    # This is the most reliable way to distinguish them since both share many other columns (MR, FR, OBE, etc.)
+    # A veh sheets have broader set of columns including Eng, Spares, MR, FR, R4, OBE
+    
+    # Check if this is A veh (has all the specific A veh columns)
+    is_aveh = ('Eng' in df.columns and 'Spares' in df.columns and 
+               'MR' in df.columns and 'FR' in df.columns and 
+               'Category (Make & Type)' in df.columns)
+    
+    # Check if this is ARMT (has Make & Eqpt or specific ARMT columns)
     is_armt = 'Make & Eqpt' in df.columns or ('Eng/ Brl' in df.columns or 'Eng/   Brl' in df.columns)
     
     # Determine category column based on sheet type
@@ -427,10 +438,14 @@ def aggregate_by_category(row_data_list: List[Dict[str, Any]],
         return []
     
     # Define the standard numerical columns for aggregation based on sheet type
-    if is_armt:
+    if is_aveh:
+        # For A veh, sum only base columns; derived fields will be calculated after aggregation
+        numerical_cols = ['Auth (UE)', 'Held (UH)', 'Eng', 'MUA', 'Spares', 'OH', 'MR', 'FR', 'R4', 'OBE']
+    elif is_armt:
         # For ARMT, percentage columns will be calculated, not summed
         numerical_cols = ['Auth (UE)', 'Held (UH)', 'Eng/ Brl', 'MUA', 'Spares', 'OH', 'MR', 'FR', 'R4', 'Under OH /MR/R4/ FR/ Base Repair', 'OBE', 'Total NMC (Nos)', 'PMC (Nos) (Due to OH)', 'FMC']
     else:
+        # B veh / C veh
         numerical_cols = ['Auth (UE)', 'Held (UH)', 'MUA', 'OH', 'R4', 'Total NMC (Nos)', 'FMC']
     
     # Only include numerical columns that actually exist in the dataframe
@@ -451,6 +466,20 @@ def aggregate_by_category(row_data_list: List[Dict[str, Any]],
         # Category value
         agg_row[category_col] = category
         
+        # For A veh, handle the "Units" column - concatenate unique unit names
+        if is_aveh and 'Units' in df.columns:
+            units_list = []
+            for unit in group['Units']:
+                if pd.notna(unit) and str(unit).strip() and str(unit).lower() not in ['none', 'nan', '-']:
+                    unit_str = str(unit).strip()
+                    if unit_str not in units_list:
+                        units_list.append(unit_str)
+            
+            if units_list:
+                agg_row['Units'] = ', '.join(units_list)
+            else:
+                agg_row['Units'] = ''
+        
         # Sum numerical columns
         for num_col in numerical_cols:
             # Extract numeric values (handles special characters)
@@ -468,8 +497,50 @@ def aggregate_by_category(row_data_list: List[Dict[str, Any]],
                 else:
                     agg_row[num_col] = total
         
+        # Calculate derived fields and percentages for A veh sheets
+        if is_aveh:
+            held_uh = agg_row.get('Held (UH)', 0)
+            eng = agg_row.get('Eng', 0)
+            mua = agg_row.get('MUA', 0)
+            oh = agg_row.get('OH', 0)
+            mr = agg_row.get('MR', 0)
+            spares = agg_row.get('Spares', 0)
+            fr = agg_row.get('FR', 0)
+            
+            # Calculate derived fields
+            # Total NMC (Nos) = Eng + MUA + OH + MR
+            total_nmc = eng + mua + oh + mr
+            agg_row['Total NMC (Nos)'] = int(total_nmc) if total_nmc == int(total_nmc) else total_nmc
+            
+            # PMC (Nos) (Due to OH) = Spares + FR
+            pmc_nos = spares + fr
+            agg_row['PMC (Nos) (Due to OH)'] = int(pmc_nos) if pmc_nos == int(pmc_nos) else pmc_nos
+            
+            # FMC = Held (UH) - Total NMC (Nos) - PMC (Nos) (Due to OH)
+            fmc = held_uh - total_nmc - pmc_nos
+            agg_row['FMC'] = int(fmc) if fmc == int(fmc) else fmc
+            
+            if held_uh > 0:
+                # NMC % = (Total NMC (Nos) / Held (UH)) * 100
+                agg_row['NMC %'] = (total_nmc / held_uh) * 100
+                
+                # PMC % = (PMC (Nos) (Due to OH) / Held (UH)) * 100
+                agg_row['PMC %'] = (pmc_nos / held_uh) * 100
+                
+                # FMC % = (FMC / Held (UH)) * 100
+                agg_row['FMC %'] = (fmc / held_uh) * 100
+                
+                # Avl % = PMC % + FMC %
+                agg_row['Avl %'] = agg_row['PMC %'] + agg_row['FMC %']
+            else:
+                # If Held (UH) is 0, set percentages to None
+                agg_row['NMC %'] = None
+                agg_row['PMC %'] = None
+                agg_row['FMC %'] = None
+                agg_row['Avl %'] = None
+        
         # Calculate percentage columns for ARMT sheets
-        if is_armt:
+        elif is_armt:
             held_uh = agg_row.get('Held (UH)', 0)
             
             if held_uh > 0:
@@ -531,7 +602,31 @@ def aggregate_by_category(row_data_list: List[Dict[str, Any]],
     cleaned_rows = []
     
     # Define the exact column order based on sheet type
-    if is_armt:
+    if is_aveh:
+        column_order = [
+            'Ser No',
+            'Category (Make & Type)',
+            'Units',
+            'Auth (UE)',
+            'Held (UH)',
+            'Eng',
+            'MUA',
+            'Spares',
+            'OH',
+            'MR',
+            'FR',
+            'R4',
+            'OBE',
+            'Total NMC (Nos)',
+            'PMC (Nos) (Due to OH)',
+            'FMC',
+            'NMC %',
+            'PMC %',
+            'FMC %',
+            'Avl %',
+            'Remarks'
+        ]
+    elif is_armt:
         column_order = [
             'Ser No',
             'Make & Eqpt',
@@ -579,8 +674,35 @@ def aggregate_by_category(row_data_list: List[Dict[str, Any]],
             elif col_name in [category_col, 'Category (Make & Type)', 'Make & Eqpt'] and category_col in row:
                 # Use the actual category column name from this sheet type
                 cleaned_row[category_col] = row[category_col]
+            elif col_name == 'Units' and col_name in row:
+                # Units column for A veh
+                value = row[col_name]
+                if pd.isna(value) or value is None or str(value).lower() in ['none', 'nan', '-', '']:
+                    cleaned_row[col_name] = ''
+                else:
+                    cleaned_row[col_name] = str(value)
             elif col_name in numerical_cols and col_name in row:
                 # Numerical columns with proper type conversion
+                value = row[col_name]
+                if pd.isna(value):
+                    cleaned_row[col_name] = 0
+                elif isinstance(value, (np.integer, np.int64, np.int32)):
+                    cleaned_row[col_name] = int(value)
+                elif isinstance(value, (np.floating, np.float64, np.float32)):
+                    cleaned_row[col_name] = float(value)
+                else:
+                    cleaned_row[col_name] = value
+            elif is_aveh and col_name in ['NMC %', 'PMC %', 'FMC %', 'Avl %'] and col_name in row:
+                # Percentage columns for A veh (calculated, not summed)
+                value = row[col_name]
+                if value is None or pd.isna(value):
+                    cleaned_row[col_name] = None  # Will display as "-" in frontend
+                elif isinstance(value, (np.floating, np.float64, np.float32, float)):
+                    cleaned_row[col_name] = float(value)
+                else:
+                    cleaned_row[col_name] = value
+            elif col_name in ['Total NMC (Nos)', 'PMC (Nos) (Due to OH)', 'FMC'] and col_name in row:
+                # Derived fields for A veh (calculated, not summed)
                 value = row[col_name]
                 if pd.isna(value):
                     cleaned_row[col_name] = 0
@@ -658,6 +780,124 @@ def validate_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
         'issues': issues,
         'metrics': metrics
     }
+
+
+def calculate_derived_fields(df: pd.DataFrame, sheet_type: str) -> pd.DataFrame:
+    """
+    Calculate derived/computed fields for sheet types that have auto-generated columns.
+    
+    For APPX_A_AVEH (A veh):
+    - Total NMC (Nos) = Eng + MUA + OH + MR
+    - PMC (Nos) (Due to OH) = Spares + FR
+    - FMC = Held - (Total NMC + PMC)
+    - NMC % = (Total NMC / Held) × 100
+    - PMC % = (PMC / Held) × 100
+    - FMC % = (FMC / Held) × 100
+    - Avl % = PMC % + FMC %
+    
+    Args:
+        df: DataFrame with raw data from Excel
+        sheet_type: Sheet type identifier (e.g., 'APPX_A_AVEH')
+    
+    Returns:
+        DataFrame with calculated fields added/updated
+    """
+    if df is None or df.empty:
+        return df
+    
+    # Create a copy to avoid modifying original
+    result_df = df.copy()
+    
+    # A Vehicles - Calculate all derived fields
+    if sheet_type == 'APPX_A_AVEH':
+        # Helper function to get numeric value
+        def get_numeric(row, col_name):
+            if col_name not in result_df.columns:
+                return 0
+            val = row.get(col_name, 0)
+            if pd.isna(val) or val == '':
+                return 0
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return 0
+        
+        # Calculate Total NMC (Nos) = Eng + MUA + OH + MR
+        total_nmc_values = []
+        for _, row in result_df.iterrows():
+            total_nmc = (get_numeric(row, 'Eng') + 
+                        get_numeric(row, 'MUA') + 
+                        get_numeric(row, 'OH') + 
+                        get_numeric(row, 'MR'))
+            total_nmc_values.append(total_nmc)
+        
+        result_df['Total NMC (Nos)'] = total_nmc_values
+        
+        # Calculate PMC (Nos) (Due to OH) = Spares + FR
+        pmc_values = []
+        for _, row in result_df.iterrows():
+            pmc = get_numeric(row, 'Spares') + get_numeric(row, 'FR')
+            pmc_values.append(pmc)
+        
+        result_df['PMC (Nos) (Due to OH)'] = pmc_values
+        
+        # Get Held column name
+        held_col = 'Held (UH)' if 'Held (UH)' in result_df.columns else 'Held'
+        
+        # Calculate FMC = Held - (Total NMC + PMC)
+        if held_col in result_df.columns:
+            fmc_values = []
+            for idx, row in result_df.iterrows():
+                held = get_numeric(row, held_col)
+                total_nmc = row.get('Total NMC (Nos)', 0)
+                pmc = row.get('PMC (Nos) (Due to OH)', 0)
+                
+                fmc = held - total_nmc - pmc
+                fmc_values.append(max(0, fmc))  # Ensure non-negative
+            
+            result_df['FMC'] = fmc_values
+        
+        # Calculate percentage fields
+        if held_col in result_df.columns:
+            nmc_pct = []
+            pmc_pct = []
+            fmc_pct = []
+            avl_pct = []
+            
+            for idx, row in result_df.iterrows():
+                held = get_numeric(row, held_col)
+                
+                if held > 0:
+                    # NMC % = (Total NMC / Held) × 100
+                    total_nmc = row.get('Total NMC (Nos)', 0)
+                    nmc_percentage = (total_nmc / held) * 100
+                    nmc_pct.append(round(nmc_percentage, 2))
+                    
+                    # PMC % = (PMC / Held) × 100
+                    pmc = row.get('PMC (Nos) (Due to OH)', 0)
+                    pmc_percentage = (pmc / held) * 100
+                    pmc_pct.append(round(pmc_percentage, 2))
+                    
+                    # FMC % = (FMC / Held) × 100
+                    fmc = row.get('FMC', 0)
+                    fmc_percentage = (fmc / held) * 100
+                    fmc_pct.append(round(fmc_percentage, 2))
+                    
+                    # Avl % = PMC % + FMC %
+                    avl_percentage = pmc_percentage + fmc_percentage
+                    avl_pct.append(round(avl_percentage, 2))
+                else:
+                    nmc_pct.append(0)
+                    pmc_pct.append(0)
+                    fmc_pct.append(0)
+                    avl_pct.append(0)
+            
+            result_df['NMC %'] = nmc_pct
+            result_df['PMC %'] = pmc_pct
+            result_df['FMC %'] = fmc_pct
+            result_df['Avl %'] = avl_pct
+    
+    return result_df
 
 
 def dataframe_to_json(df: pd.DataFrame) -> List[Dict[str, Any]]:

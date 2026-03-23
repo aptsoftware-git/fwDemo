@@ -35,9 +35,10 @@ const ComparisonPanel = ({ datasets }) => {
 
   const getSheetTypeLabel = (sheetType) => {
     const labels = {
-      'APPX_A_BVEH': 'Appx A (B veh)',
-      'APPX_A_CVEH': 'Appx A (C veh)',
-      'ARMT': 'Armt',
+      'APPX_A_AVEH': 'A Veh',
+      'APPX_A_BVEH': 'B Veh',
+      'APPX_A_CVEH': 'C Veh',
+      'ARMT': 'ARMT',
       'SA': 'SA'
     };
     return labels[sheetType] || sheetType;

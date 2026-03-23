@@ -3,9 +3,10 @@ import DataTable from './DataTable';
 import SummaryModal from './SummaryModal';
 
 const SHEET_TYPES = [
-  { key: 'APPX_A_BVEH', label: 'Appx A (B veh)' },
-  { key: 'APPX_A_CVEH', label: 'Appx A (C veh)' },
-  { key: 'ARMT', label: 'Armt' },
+  { key: 'APPX_A_AVEH', label: 'A Veh' },
+  { key: 'APPX_A_BVEH', label: 'B Veh' },
+  { key: 'APPX_A_CVEH', label: 'C Veh' },
+  { key: 'ARMT', label: 'ARMT' },
   { key: 'SA', label: 'SA' },
   // { key: 'INST', label: 'INST' },  // TODO: Temporarily disabled - investigate later
   // { key: 'CBRN', label: 'CBRN' },  // TODO: Temporarily disabled - investigate later
