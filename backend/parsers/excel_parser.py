@@ -257,6 +257,23 @@ def parse_sheet_with_detection(file_path: Path, sheet_name: str) -> pd.DataFrame
         # Fallback: use detected names as much as possible
         df.columns = (column_names + [f"Column_{i}" for i in range(len(column_names), len(df.columns))])[:len(df.columns)]
     
+    # Handle merged cells by forward-filling specific columns
+    # In Excel, merged cells appear as NaN in pandas - we need to fill them down
+    # Columns that typically have merged cells: Ser No, Category (Make & Type)
+    merge_fill_columns = []
+    for col in df.columns:
+        col_str = str(col).lower()
+        # Identify columns that should have merged cell values filled down
+        if any(keyword in col_str for keyword in ['ser', 'category', 'make', 'type']):
+            merge_fill_columns.append(col)
+    
+    # Forward fill these columns to handle merged cells
+    for col in merge_fill_columns:
+        if col in df.columns:
+            # Only fill NaN values (merged cells), not empty strings
+            df[col] = df[col].replace('', pd.NA)  # Convert empty strings to NaN first
+            df[col] = df[col].ffill()  # Forward fill
+    
     # Remove completely empty rows
     df = df.dropna(how='all')
     

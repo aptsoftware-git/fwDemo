@@ -455,30 +455,37 @@ def aggregate_by_category(row_data_list: List[Dict[str, Any]],
     remarks_col = 'Remarks' if 'Remarks' in df.columns else None
     ser_no_col = 'Ser No' if 'Ser No' in df.columns else None
     
-    # Group by category
-    grouped = df.groupby(category_col, sort=False, dropna=False)
+    # For A veh, create a combined grouping key using Category and Units
+    # Each unique Category+Units combination should be aggregated separately
+    if is_aveh and 'Units' in df.columns:
+        # Create composite key for grouping: Category|Units
+        df['_grouping_key'] = df[category_col].astype(str) + '|' + df['Units'].astype(str)
+        grouping_col = '_grouping_key'
+        grouped = df.groupby(grouping_col, sort=False, dropna=False)
+    else:
+        # For other sheet types, group by category only
+        grouping_col = category_col
+        grouped = df.groupby(category_col, sort=False, dropna=False)
     
     aggregated_rows = []
     
-    for category, group in grouped:
+    for group_key, group in grouped:
         agg_row = {}
         
-        # Category value
-        agg_row[category_col] = category
-        
-        # For A veh, handle the "Units" column - concatenate unique unit names
-        if is_aveh and 'Units' in df.columns:
-            units_list = []
-            for unit in group['Units']:
-                if pd.notna(unit) and str(unit).strip() and str(unit).lower() not in ['none', 'nan', '-']:
-                    unit_str = str(unit).strip()
-                    if unit_str not in units_list:
-                        units_list.append(unit_str)
-            
-            if units_list:
-                agg_row['Units'] = ', '.join(units_list)
+        # Extract Category and Units from grouping key for A veh
+        if is_aveh and grouping_col == '_grouping_key':
+            # Split composite key back into components
+            if '|' in str(group_key):
+                category, units = str(group_key).split('|', 1)
+                agg_row[category_col] = category
+                agg_row['Units'] = units if units != 'nan' else ''
             else:
+                # Fallback if split fails
+                agg_row[category_col] = group_key
                 agg_row['Units'] = ''
+        else:
+            # For other sheet types, just use category
+            agg_row[category_col] = group_key
         
         # Sum numerical columns
         for num_col in numerical_cols:
@@ -591,10 +598,14 @@ def aggregate_by_category(row_data_list: List[Dict[str, Any]],
         
         aggregated_rows.append(agg_row)
     
-    # Regenerate serial numbers
+    # Regenerate serial numbers sequentially as integers
     if ser_no_col:
         for idx, row in enumerate(aggregated_rows, start=1):
             row[ser_no_col] = idx
+    
+    # For A veh with composite key, clean up the temporary grouping column
+    if is_aveh and '_grouping_key' in df.columns:
+        df = df.drop(columns=['_grouping_key'])
     
     # Convert NaN and numpy types to Python native types for proper JSON serialization
     # Also ensure columns are in the canonical order
@@ -667,67 +678,68 @@ def aggregate_by_category(row_data_list: List[Dict[str, Any]],
     for row in aggregated_rows:
         cleaned_row = {}
         
-        # Add columns in specified order
+        # Add columns in specified order, with default values if missing
         for col_name in column_order:
-            if col_name == 'Ser No' and ser_no_col and ser_no_col in row:
-                cleaned_row['Ser No'] = row[ser_no_col]
-            elif col_name in [category_col, 'Category (Make & Type)', 'Make & Eqpt'] and category_col in row:
-                # Use the actual category column name from this sheet type
-                cleaned_row[category_col] = row[category_col]
-            elif col_name == 'Units' and col_name in row:
+            if col_name == 'Ser No':
+                # Serial number - always an integer
+                if 'Ser No' in row:
+                    val = row['Ser No']
+                    cleaned_row['Ser No'] = int(val) if not pd.isna(val) else 0
+                else:
+                    cleaned_row['Ser No'] = 0
+            elif col_name in [category_col, 'Category (Make & Type)', 'Make & Eqpt']:
+                # Category column
+                if category_col in row:
+                    cleaned_row[category_col] = row[category_col]
+                else:
+                    cleaned_row[col_name] = ''
+            elif col_name == 'Units':
                 # Units column for A veh
-                value = row[col_name]
-                if pd.isna(value) or value is None or str(value).lower() in ['none', 'nan', '-', '']:
+                if col_name in row:
+                    value = row[col_name]
+                    if pd.isna(value) or value is None or str(value).lower() in ['none', 'nan', '-', '']:
+                        cleaned_row[col_name] = ''
+                    else:
+                        cleaned_row[col_name] = str(value)
+                else:
                     cleaned_row[col_name] = ''
+            elif col_name in ['NMC %', 'PMC %', 'FMC %', 'Avl %'] or col_name in ['NMC%', 'PMC%', 'FMC%', 'Avl%']:
+                # Percentage columns
+                if col_name in row:
+                    value = row[col_name]
+                    if value is None or pd.isna(value):
+                        cleaned_row[col_name] = None  # Will display as "-" in frontend
+                    elif isinstance(value, (np.floating, np.float64, np.float32, float)):
+                        cleaned_row[col_name] = float(value)
+                    else:
+                        cleaned_row[col_name] = value
                 else:
-                    cleaned_row[col_name] = str(value)
-            elif col_name in numerical_cols and col_name in row:
-                # Numerical columns with proper type conversion
-                value = row[col_name]
-                if pd.isna(value):
-                    cleaned_row[col_name] = 0
-                elif isinstance(value, (np.integer, np.int64, np.int32)):
-                    cleaned_row[col_name] = int(value)
-                elif isinstance(value, (np.floating, np.float64, np.float32)):
-                    cleaned_row[col_name] = float(value)
-                else:
-                    cleaned_row[col_name] = value
-            elif is_aveh and col_name in ['NMC %', 'PMC %', 'FMC %', 'Avl %'] and col_name in row:
-                # Percentage columns for A veh (calculated, not summed)
-                value = row[col_name]
-                if value is None or pd.isna(value):
-                    cleaned_row[col_name] = None  # Will display as "-" in frontend
-                elif isinstance(value, (np.floating, np.float64, np.float32, float)):
-                    cleaned_row[col_name] = float(value)
-                else:
-                    cleaned_row[col_name] = value
-            elif col_name in ['Total NMC (Nos)', 'PMC (Nos) (Due to OH)', 'FMC'] and col_name in row:
-                # Derived fields for A veh (calculated, not summed)
-                value = row[col_name]
-                if pd.isna(value):
-                    cleaned_row[col_name] = 0
-                elif isinstance(value, (np.integer, np.int64, np.int32)):
-                    cleaned_row[col_name] = int(value)
-                elif isinstance(value, (np.floating, np.float64, np.float32)):
-                    cleaned_row[col_name] = float(value)
-                else:
-                    cleaned_row[col_name] = value
-            elif is_armt and col_name in ['NMC%', 'PMC%', 'FMC%', 'Avl%'] and col_name in row:
-                # Percentage columns for ARMT (calculated, not summed)
-                value = row[col_name]
-                if value is None or pd.isna(value):
-                    cleaned_row[col_name] = None  # Will display as "-" in frontend
-                elif isinstance(value, (np.floating, np.float64, np.float32, float)):
-                    cleaned_row[col_name] = float(value)
-                else:
-                    cleaned_row[col_name] = value
-            elif col_name == 'Remarks' and remarks_col and col_name in row:
+                    cleaned_row[col_name] = 0.0
+            elif col_name == 'Remarks':
                 # Remarks column
-                value = row[col_name]
-                if pd.isna(value) or value is None or str(value).lower() in ['none', 'nan', '-', '']:
-                    cleaned_row[col_name] = ''
+                if col_name in row:
+                    value = row[col_name]
+                    if pd.isna(value) or value is None or str(value).lower() in ['none', 'nan', '-', '']:
+                        cleaned_row[col_name] = ''
+                    else:
+                        cleaned_row[col_name] = str(value)
                 else:
-                    cleaned_row[col_name] = str(value)
+                    cleaned_row[col_name] = ''
+            else:
+                # All other columns (numerical)
+                if col_name in row:
+                    value = row[col_name]
+                    if pd.isna(value):
+                        cleaned_row[col_name] = 0
+                    elif isinstance(value, (np.integer, np.int64, np.int32)):
+                        cleaned_row[col_name] = int(value)
+                    elif isinstance(value, (np.floating, np.float64, np.float32)):
+                        cleaned_row[col_name] = float(value)
+                    else:
+                        cleaned_row[col_name] = value
+                else:
+                    # Default value for missing numerical columns
+                    cleaned_row[col_name] = 0
         
         cleaned_rows.append(cleaned_row)
     
@@ -785,6 +797,7 @@ def validate_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
 def calculate_derived_fields(df: pd.DataFrame, sheet_type: str) -> pd.DataFrame:
     """
     Calculate derived/computed fields for sheet types that have auto-generated columns.
+    Also ensures all expected columns exist with default values.
     
     For APPX_A_AVEH (A veh):
     - Total NMC (Nos) = Eng + MUA + OH + MR
@@ -800,7 +813,7 @@ def calculate_derived_fields(df: pd.DataFrame, sheet_type: str) -> pd.DataFrame:
         sheet_type: Sheet type identifier (e.g., 'APPX_A_AVEH')
     
     Returns:
-        DataFrame with calculated fields added/updated
+        DataFrame with calculated fields added/updated and all expected columns present
     """
     if df is None or df.empty:
         return df
@@ -808,8 +821,31 @@ def calculate_derived_fields(df: pd.DataFrame, sheet_type: str) -> pd.DataFrame:
     # Create a copy to avoid modifying original
     result_df = df.copy()
     
-    # A Vehicles - Calculate all derived fields
+    # A Vehicles - Ensure all expected columns exist and calculate derived fields
     if sheet_type == 'APPX_A_AVEH':
+        # Define all expected columns for A veh
+        expected_columns = {
+            'Ser No': 0,  # Default value is 0 (will be overwritten)
+            'Category (Make & Type)': '',
+            'Units': '',
+            'Auth (UE)': 0,
+            'Held (UH)': 0,
+            'Eng': 0,
+            'MUA': 0,
+            'Spares': 0,
+            'OH': 0,
+            'MR': 0,
+            'FR': 0,
+            'R4': 0,
+            'OBE': 0,
+            'Remarks': ''
+        }
+        
+        # Add missing columns with default values
+        for col, default_val in expected_columns.items():
+            if col not in result_df.columns:
+                result_df[col] = default_val
+        
         # Helper function to get numeric value
         def get_numeric(row, col_name):
             if col_name not in result_df.columns:
@@ -896,6 +932,41 @@ def calculate_derived_fields(df: pd.DataFrame, sheet_type: str) -> pd.DataFrame:
             result_df['PMC %'] = pmc_pct
             result_df['FMC %'] = fmc_pct
             result_df['Avl %'] = avl_pct
+        
+        # Ensure Remarks column exists (might be missing for some formations)
+        if 'Remarks' not in result_df.columns:
+            result_df['Remarks'] = ''
+        
+        # Reorder columns to match expected order (Remarks should be last)
+        expected_order = [
+            'Ser No',
+            'Category (Make & Type)',
+            'Units',
+            'Auth (UE)',
+            'Held (UH)',
+            'Eng',
+            'MUA',
+            'Spares',
+            'OH',
+            'MR',
+            'FR',
+            'R4',
+            'OBE',
+            'Total NMC (Nos)',
+            'PMC (Nos) (Due to OH)',
+            'FMC',
+            'NMC %',
+            'PMC %',
+            'FMC %',
+            'Avl %',
+            'Remarks'
+        ]
+        
+        # Reorder columns - only include columns that exist
+        ordered_cols = [col for col in expected_order if col in result_df.columns]
+        # Add any extra columns not in expected_order at the end
+        extra_cols = [col for col in result_df.columns if col not in expected_order]
+        result_df = result_df[ordered_cols + extra_cols]
     
     return result_df
 
