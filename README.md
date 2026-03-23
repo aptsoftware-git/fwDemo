@@ -61,7 +61,7 @@ cd c:\Anu\APT\apt\army\fortwilliam\code\demo1
 Get-ChildItem "C:\Program Files\PostgreSQL" -Directory
 
 # Use full path to create database (replace 16 with your version)
-& "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -c "CREATE DATABASE frs_db;"
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -c "CREATE DATABASE frs_db;"
 
 # Optional: Add to PATH for easier access
 $env:Path += ";C:\Program Files\PostgreSQL\16\bin"
