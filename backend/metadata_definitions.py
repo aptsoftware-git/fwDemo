@@ -25,6 +25,159 @@ class SheetMetadata(TypedDict):
     validation_rules: List[str]
 
 
+# A Vehicles (Tracked/Armored Vehicles)
+AVEH_METADATA: SheetMetadata = {
+    "name": "A Vehicles",
+    "description": "Tracked and armored vehicles including tanks, armored personnel carriers, and infantry fighting vehicles",
+    "columns": {
+        "Ser": {
+            "full_name": "Serial Number",
+            "description": "Sequential row number for each equipment entry",
+            "data_type": "integer",
+            "required": True
+        },
+        "Category (Make & Type)": {
+            "full_name": "Equipment Nomenclature",
+            "description": "Equipment model, make, or type",
+            "data_type": "text",
+            "required": True
+        },
+        "Units": {
+            "full_name": "Units",
+            "description": "Unit designation or formation",
+            "data_type": "text",
+            "required": False
+        },
+        "Auth (UE)": {
+            "full_name": "Authorized (Unit Establishment)",
+            "description": "Sanctioned quantity permitted for the unit",
+            "data_type": "integer",
+            "required": True
+        },
+        "Held (UH)": {
+            "full_name": "Held (Unit Holding)",
+            "description": "Actual quantity physically held by the unit",
+            "data_type": "integer",
+            "required": True
+        },
+        "Eng": {
+            "full_name": "Engineering Defect",
+            "description": "Equipment non-mission capable due to engineering/structural/barrel-related fault",
+            "data_type": "integer",
+            "required": False
+        },
+        "MUA": {
+            "full_name": "Minor Under Activity",
+            "description": "Equipment under minor maintenance/light repair",
+            "data_type": "integer",
+            "required": False
+        },
+        "Spares": {
+            "full_name": "Lack of Spares",
+            "description": "Equipment unserviceable due to non-availability of spare parts",
+            "data_type": "integer",
+            "required": False
+        },
+        "OH": {
+            "full_name": "Overhaul",
+            "description": "Equipment under overhaul/major repair cycle",
+            "data_type": "integer",
+            "required": False
+        },
+        "MR": {
+            "full_name": "Medium Repair",
+            "description": "Equipment under medium-level repair",
+            "data_type": "integer",
+            "required": False
+        },
+        "FR": {
+            "full_name": "Field Repair",
+            "description": "Equipment undergoing field repair",
+            "data_type": "integer",
+            "required": False
+        },
+        "R4": {
+            "full_name": "Repair Level 4",
+            "description": "Equipment requiring specialized workshop/higher echelon repair",
+            "data_type": "integer",
+            "required": False
+        },
+        "OBE": {
+            "full_name": "Out of Bounds/Beyond Economic Repair",
+            "description": "Equipment declared beyond repair or uneconomical to repair",
+            "data_type": "integer",
+            "required": False
+        },
+        "Total NMC (Nos)": {
+            "full_name": "Total Non-Mission Capable Count",
+            "description": "Total count of all unserviceable equipment (CALCULATED: Eng + MUA + OH + MR)",
+            "data_type": "integer",
+            "required": False  # This is calculated, not read from Excel
+        },
+        "PMC (Nos) (Due to OH)": {
+            "full_name": "Partially Mission Capable Count",
+            "description": "Equipment partly operational (CALCULATED: Spares + FR)",
+            "data_type": "integer",
+            "required": False  # This is calculated, not read from Excel
+        },
+        "FMC": {
+            "full_name": "Fully Mission Capable",
+            "description": "Equipment fully fit and available for operational deployment (CALCULATED: Held - Total NMC - PMC)",
+            "data_type": "integer",
+            "required": False  # This is calculated, not read from Excel
+        },
+        "NMC %": {
+            "full_name": "Non-Mission Capable Percentage",
+            "description": "Percentage of held equipment that is non-mission capable (CALCULATED: (Total NMC / Held) × 100)",
+            "data_type": "percentage",
+            "required": False  # This is calculated, not read from Excel
+        },
+        "PMC %": {
+            "full_name": "Partially Mission Capable Percentage",
+            "description": "Percentage of held equipment that is partially mission capable (CALCULATED: (PMC / Held) × 100)",
+            "data_type": "percentage",
+            "required": False  # This is calculated, not read from Excel
+        },
+        "FMC %": {
+            "full_name": "Fully Mission Capable Percentage",
+            "description": "Percentage of held equipment that is fully mission capable (CALCULATED: (FMC / Held) × 100)",
+            "data_type": "percentage",
+            "required": False  # This is calculated, not read from Excel
+        },
+        "Avl %": {
+            "full_name": "Availability Percentage",
+            "description": "Percentage of held equipment available for use (CALCULATED: PMC % + FMC %)",
+            "data_type": "percentage",
+            "required": False  # This is calculated, not read from Excel
+        },
+        "Remarks": {
+            "full_name": "Remarks",
+            "description": "Free-text remarks including present location of equipment and Equipment On Account notes",
+            "data_type": "text",
+            "required": False
+        }
+    },
+    "key_metrics": [
+        "Combat Readiness = FMC %",
+        "Total Availability = Avl %",
+        "Repair Load = Total NMC (Nos)",
+        "Engineering Issues = Eng count",
+        "Supply Chain = Spares count"
+    ],
+    "validation_rules": [
+        "Held ≤ Auth",
+        "FMC ≤ Held",
+        "Total NMC = Eng + MUA + OH + MR",
+        "PMC = Spares + FR",
+        "FMC = Held - Total NMC - PMC",
+        "NMC % = (Total NMC / Held) × 100",
+        "PMC % = (PMC / Held) × 100",
+        "FMC % = (FMC / Held) × 100",
+        "Avl % = PMC % + FMC %"
+    ]
+}
+
+
 # B Vehicles (Transport)
 BVEH_METADATA: SheetMetadata = {
     "name": "B Vehicles",
@@ -540,6 +693,7 @@ CBRN_METADATA: SheetMetadata = {
 
 # Master metadata dictionary
 SHEET_METADATA: Dict[str, SheetMetadata] = {
+    "APPX_A_AVEH": AVEH_METADATA,
     "APPX_A_BVEH": BVEH_METADATA,
     "APPX_A_CVEH": CVEH_METADATA,
     "ARMT": ARMT_METADATA,

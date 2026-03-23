@@ -39,21 +39,20 @@ DATA_DIR_PATH = Path(DATA_DIR) if not Path(DATA_DIR).is_absolute() else Path(DAT
 LOG_LEVEL = config('LOG_LEVEL', default='INFO', cast=str)
 
 # Sheet Type Mapping (Standard sheet names)
-# A veh is included for matching but not in standard display order
 SHEET_TYPES = {
-    'APPX_A_AVEH': 'Appx A (A veh)',  # Tracked vehicles (optional, only some formations)
-    'APPX_A_BVEH': 'Appx A (B veh)',
-    'APPX_A_CVEH': 'Appx A (C veh)',
-    'ARMT': 'Armt',
+    'APPX_A_AVEH': 'A Veh',  # Tracked/armored vehicles
+    'APPX_A_BVEH': 'B Veh',  # Transport vehicles
+    'APPX_A_CVEH': 'C Veh',  # Engineering plant
+    'ARMT': 'ARMT',
     'SA': 'SA',
     'INST': 'INST',
     'CBRN': 'CBRN'
 }
 
 # Sheet Type Order (standard display sequence)
-# A veh excluded as it's only present in formations with tracked vehicles
 # INST and CBRN temporarily disabled for investigation
 SHEET_TYPE_ORDER = [
+    'APPX_A_AVEH',
     'APPX_A_BVEH',
     'APPX_A_CVEH',
     'ARMT',

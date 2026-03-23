@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from models import Dataset, Unit, SheetData
 from parsers.dictionary_parser import parse_dictionary
 from parsers.excel_parser import parse_excel_file
-from processors.data_cleaner import clean_dataframe, dataframe_to_json
+from processors.data_cleaner import clean_dataframe, dataframe_to_json, calculate_derived_fields
 
 
 def detect_month_from_path(directory_path: str) -> Optional[str]:
@@ -191,8 +191,12 @@ def process_directory(directory_path: str, tag: Optional[str], description: Opti
                     # Process each sheet
                     for sheet_type, df in parsed_sheets.items():
                         try:
-                            # Clean data
-                            cleaned_df = clean_dataframe(df)
+                            # Calculate derived fields (for sheets like A veh with auto-generated columns)
+                            df_with_calcs = calculate_derived_fields(df, sheet_type)
+                            
+                            # Clean data - use 'zero' fill strategy for A veh to ensure missing values become 0 for numbers, empty for text
+                            fill_strategy = 'zero' if sheet_type == 'APPX_A_AVEH' else 'drop'
+                            cleaned_df = clean_dataframe(df_with_calcs, fill_strategy=fill_strategy)
                             
                             # Convert to JSON
                             row_data = dataframe_to_json(cleaned_df)

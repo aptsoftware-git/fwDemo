@@ -62,9 +62,10 @@ Provide a **Comparative Readiness & Trend Analysis** for the **{sheet_type}** ca
 Format your response in clear markdown with proper headings and bullet points.`;
 
 const SHEET_TYPE_LABELS = {
-  'APPX_A_BVEH': 'Appx A (B veh)',
-  'APPX_A_CVEH': 'Appx A (C veh)',
-  'ARMT': 'Armt',
+  'APPX_A_AVEH': 'A Veh',
+  'APPX_A_BVEH': 'B Veh',
+  'APPX_A_CVEH': 'C Veh',
+  'ARMT': 'ARMT',
   'SA': 'SA'
 };
 
