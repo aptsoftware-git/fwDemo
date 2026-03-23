@@ -217,25 +217,38 @@ def parse_sheet_with_detection(file_path: Path, sheet_name: str) -> pd.DataFrame
         pandas DataFrame with properly named columns
     """
     # Load workbook to analyze structure
-    wb = openpyxl.load_workbook(file_path, data_only=True)
-    
-    if sheet_name not in wb.sheetnames:
-        raise ValueError(f"Sheet '{sheet_name}' not found in workbook")
-    
-    ws = wb[sheet_name]
-    
-    # Detect headers and data start
-    data_start_row, column_names = detect_header_rows(ws)
-    
-    wb.close()
+    try:
+        wb = openpyxl.load_workbook(file_path, data_only=True)
+        
+        if sheet_name not in wb.sheetnames:
+            raise ValueError(f"Sheet '{sheet_name}' not found in workbook")
+        
+        ws = wb[sheet_name]
+        
+        # Detect headers and data start
+        data_start_row, column_names = detect_header_rows(ws)
+        
+        wb.close()
+    except Exception as e:
+        # If openpyxl fails, use basic pandas parsing without header detection
+        print(f"[parser] Header detection failed for {sheet_name}, using basic parsing: {str(e)}")
+        data_start_row = 1
+        column_names = []
     
     # Determine engine based on file extension
     engine = 'openpyxl' if file_path.suffix == '.xlsx' else 'xlrd'
     
     # Read data using pandas, skipping header rows
     # openpyxl preserves newlines in cell values (created with Alt+Enter in Excel)
-    df = pd.read_excel(file_path, sheet_name=sheet_name, header=None, 
-                       skiprows=data_start_row - 1, engine=engine)
+    try:
+        df = pd.read_excel(file_path, sheet_name=sheet_name, header=None, 
+                           skiprows=data_start_row - 1, engine=engine)
+    except Exception as e:
+        # If pandas with openpyxl fails, log and re-raise with helpful message
+        raise Exception(
+            f"Unable to read sheet '{sheet_name}': {str(e)}. "
+            f"The file may be corrupted. Please try opening and re-saving in Excel."
+        )
     
     # Set column names
     if column_names and len(column_names) <= len(df.columns):
@@ -330,8 +343,31 @@ def parse_excel_file(file_path: str, dictionary_mapping: Dict[str, List[str]] = 
         # Open workbook with openpyxl for stage 1+2 detection (.xlsx only)
         wb = None
         if file_ext == '.xlsx':
-            wb = openpyxl.load_workbook(file_path, data_only=True)
-            sheet_names = wb.sheetnames
+            try:
+                wb = openpyxl.load_workbook(file_path, data_only=True)
+                sheet_names = wb.sheetnames
+            except Exception as openpyxl_error:
+                # If openpyxl fails (e.g., invalid XML), try using pandas as fallback
+                error_msg = str(openpyxl_error)
+                if 'invalid XML' in error_msg or 'could not read' in error_msg:
+                    print(f"[parser] openpyxl failed for {file_path.name}, trying pandas fallback...")
+                    try:
+                        # Try pandas with openpyxl engine first
+                        excel_file = pd.ExcelFile(file_path, engine='openpyxl')
+                        sheet_names = excel_file.sheet_names
+                        excel_file.close()
+                    except Exception:
+                        # If that fails too, suggest file repair
+                        raise Exception(
+                            f"Unable to read workbook: {error_msg}. "
+                            f"The file '{file_path.name}' may be corrupted or contain invalid data. "
+                            f"Please try:\n"
+                            f"1. Open the file in Excel and save it again (File > Save As > Excel Workbook)\n"
+                            f"2. Check if the file is password-protected or contains macros\n"
+                            f"3. Try repairing the file in Excel (File > Open > Browse > select file > Open dropdown > Open and Repair)"
+                        )
+                else:
+                    raise
         else:
             # .xls: use xlrd for sheet names; stage 2 not available
             excel_file = pd.ExcelFile(file_path, engine='xlrd')

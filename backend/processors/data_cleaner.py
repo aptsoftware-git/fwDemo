@@ -522,16 +522,16 @@ def aggregate_by_category(row_data_list: List[Dict[str, Any]],
             
             if held_uh > 0:
                 # NMC % = (Total NMC (Nos) / Held (UH)) * 100
-                agg_row['NMC %'] = (total_nmc / held_uh) * 100
+                agg_row['NMC %'] = round((total_nmc / held_uh) * 100, 2)
                 
                 # PMC % = (PMC (Nos) (Due to OH) / Held (UH)) * 100
-                agg_row['PMC %'] = (pmc_nos / held_uh) * 100
+                agg_row['PMC %'] = round((pmc_nos / held_uh) * 100, 2)
                 
                 # FMC % = (FMC / Held (UH)) * 100
-                agg_row['FMC %'] = (fmc / held_uh) * 100
+                agg_row['FMC %'] = round((fmc / held_uh) * 100, 2)
                 
                 # Avl % = PMC % + FMC %
-                agg_row['Avl %'] = agg_row['PMC %'] + agg_row['FMC %']
+                agg_row['Avl %'] = round(agg_row['PMC %'] + agg_row['FMC %'], 2)
             else:
                 # If Held (UH) is 0, set percentages to None
                 agg_row['NMC %'] = None
@@ -546,18 +546,18 @@ def aggregate_by_category(row_data_list: List[Dict[str, Any]],
             if held_uh > 0:
                 # NMC% = Total NMC (Nos) / Held (UH)
                 total_nmc = agg_row.get('Total NMC (Nos)', 0)
-                agg_row['NMC%'] = total_nmc / held_uh
+                agg_row['NMC%'] = round(total_nmc / held_uh, 2)
                 
                 # PMC% = PMC (Nos) (Due to OH) / Held (UH)
                 pmc_nos = agg_row.get('PMC (Nos) (Due to OH)', 0)
-                agg_row['PMC%'] = pmc_nos / held_uh
+                agg_row['PMC%'] = round(pmc_nos / held_uh, 2)
                 
                 # FMC% = FMC / Held (UH)
                 fmc = agg_row.get('FMC', 0)
-                agg_row['FMC%'] = fmc / held_uh
+                agg_row['FMC%'] = round(fmc / held_uh, 2)
                 
                 # Avl% = PMC% + FMC%
-                agg_row['Avl%'] = agg_row['PMC%'] + agg_row['FMC%']
+                agg_row['Avl%'] = round(agg_row['PMC%'] + agg_row['FMC%'], 2)
             else:
                 # If Held (UH) is 0, set percentages to None (will display as "-")
                 agg_row['NMC%'] = None
