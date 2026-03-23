@@ -100,6 +100,24 @@ export const checkHealth = async () => {
 };
 
 /**
+ * DEMO: Load demo data from hardcoded path
+ * @returns {Promise} Success message
+ */
+export const loadDemoData = async () => {
+  const response = await apiClient.post('/demo/load');
+  return response.data;
+};
+
+/**
+ * DEMO: Clean all data from database
+ * @returns {Promise} Success message
+ */
+export const cleanDemoData = async () => {
+  const response = await apiClient.post('/demo/clean');
+  return response.data;
+};
+
+/**
  * Generate summary for a dataset using LLM
  * @param {string} tag - Dataset tag
  * @param {string} unitFilter - Unit filter ("All" or specific unit)

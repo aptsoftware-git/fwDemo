@@ -8,7 +8,6 @@ const UnitFilter = ({ units, selectedUnit, onSelect }) => {
         value={selectedUnit} 
         onChange={(e) => onSelect(e.target.value)}
       >
-        <option value="All">All Units (Aggregated)</option>
         {units.map((unit) => (
           <option key={unit} value={unit}>
             {unit}

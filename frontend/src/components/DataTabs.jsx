@@ -2,19 +2,54 @@ import React, { useState } from 'react';
 import DataTable from './DataTable';
 import SummaryModal from './SummaryModal';
 
-const SHEET_TYPES = [
+// Formation dataset sheet types
+const FORMATION_SHEET_TYPES = [
   { key: 'APPX_A_AVEH', label: 'A Veh' },
   { key: 'APPX_A_BVEH', label: 'B Veh' },
   { key: 'APPX_A_CVEH', label: 'C Veh' },
   { key: 'ARMT', label: 'ARMT' },
   { key: 'SA', label: 'SA' },
-  // { key: 'INST', label: 'INST' },  // TODO: Temporarily disabled - investigate later
-  // { key: 'CBRN', label: 'CBRN' },  // TODO: Temporarily disabled - investigate later
+];
+
+// Local Workshop sheet types
+const LOCAL_WORKSHOP_SHEET_TYPES = [
+  { key: 'FR', label: 'FR' },
+];
+
+// Remote Workshop sheet types
+const REMOTE_WORKSHOP_SHEET_TYPES = [
+  { key: 'Eng', label: 'Eng' },
+  { key: 'EOA Spares', label: 'EOA Spares' },
+  { key: 'MUA', label: 'MUA' },
 ];
 
 const DataTabs = ({ data, tag, unitFilter }) => {
-  const [activeTab, setActiveTab] = useState('APPX_A_BVEH');
+  // Determine dataset type from tag
+  const isLocalWorkshop = tag && tag.includes('Local Workshop');
+  const isRemoteWorkshop = tag && tag.includes('Remote Workshop');
+  
+  // Select appropriate sheet types based on dataset type
+  let SHEET_TYPES;
+  let defaultTab;
+  
+  if (isLocalWorkshop) {
+    SHEET_TYPES = LOCAL_WORKSHOP_SHEET_TYPES;
+    defaultTab = 'FR';
+  } else if (isRemoteWorkshop) {
+    SHEET_TYPES = REMOTE_WORKSHOP_SHEET_TYPES;
+    defaultTab = 'Eng';
+  } else {
+    SHEET_TYPES = FORMATION_SHEET_TYPES;
+    defaultTab = 'APPX_A_AVEH';
+  }
+  
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const [summaryModalOpen, setSummaryModalOpen] = useState(false);
+
+  // Reset active tab when dataset type changes
+  React.useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [tag, defaultTab]);
 
   if (!data || !data.sheets) {
     return <div className="loading">No data loaded</div>;

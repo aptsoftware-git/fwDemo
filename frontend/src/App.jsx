@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import { getDatasets, getData, getUnits } from './api/client';
-import UploadPanel from './components/UploadPanel';
+// GENERIC FEATURE: Original UploadPanel hidden for demo
+// import UploadPanel from './components/UploadPanel';
+// DEMO: Use simplified DemoLoadPanel instead
+import DemoLoadPanel from './components/DemoLoadPanel';
 import DatasetSelector from './components/DatasetSelector';
 import UnitFilter from './components/UnitFilter';
 import DataTabs from './components/DataTabs';
@@ -13,7 +16,7 @@ function App() {
   const [datasets, setDatasets] = useState([]);
   const [selectedTag, setSelectedTag] = useState('');
   const [units, setUnits] = useState([]);
-  const [selectedUnit, setSelectedUnit] = useState('All');
+  const [selectedUnit, setSelectedUnit] = useState(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -26,18 +29,19 @@ function App() {
   // Load units when dataset selection changes
   useEffect(() => {
     if (selectedTag) {
+      // Reset unit selection to ensure data reloads when switching datasets
+      setSelectedUnit(null);
       loadUnits(selectedTag);
-      // Data will be loaded automatically when selectedUnit is set by loadUnits
     } else {
       setUnits([]);
-      setSelectedUnit('All');
+      setSelectedUnit(null);
       setData(null);
     }
   }, [selectedTag]);
 
   // Load data when unit filter changes
   useEffect(() => {
-    if (selectedTag) {
+    if (selectedTag && selectedUnit) {
       loadData(selectedTag, selectedUnit);
     }
   }, [selectedUnit]);
@@ -108,7 +112,12 @@ function App() {
           </div>
         </div>
 
+        {/* DEMO: Simplified load panel with Load and Clean buttons */}
+        <DemoLoadPanel onLoadSuccess={handleUploadSuccess} />
+
+        {/* GENERIC FEATURE: Original upload panel hidden for demo
         <UploadPanel onUploadSuccess={handleUploadSuccess} />
+        */}
 
         {datasets.length > 0 && (
           <DatasetManager datasets={datasets} onDatasetDeleted={handleDatasetDeleted} />
@@ -151,9 +160,11 @@ function App() {
               )}
             </div>
 
+            {/* DEMO: Hide Compare Datasets section
             {datasets.length >= 2 && (
               <ComparisonPanel datasets={datasets} />
             )}
+            */}
           </>
         )}
 
