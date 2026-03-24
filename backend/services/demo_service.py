@@ -19,7 +19,7 @@ DEMO_FORMATION = os.getenv('DEMO_FORMATION', 'Fmn D')
 
 # Sheet mappings for different file types
 FORMATION_SHEETS = ["A Vehicle", "B Vehicle", "C Vehicle", "ARMT", "SA"]
-LOCAL_WORKSHOP_SHEET = "FR"
+LOCAL_WORKSHOP_SHEETS = ["FR", "SPARES"]
 REMOTE_WORKSHOP_SHEETS = ["Eng", "EOA Spares", "MUA"]
 
 # Map Excel sheet names to database sheet type keys
@@ -160,7 +160,7 @@ def process_formation_file(file_path: Path, unit_name: str, dataset_id: int, db:
 
 def process_local_workshop(file_path: Path, dataset_id: int, db: Session) -> Tuple[bool, str, List[str]]:
     """
-    Process Local Workshop file - parse FR sheet.
+    Process Local Workshop file - parse FR and SPARES sheets.
     
     Args:
         file_path: Path to Local Workshop Excel file
@@ -171,52 +171,78 @@ def process_local_workshop(file_path: Path, dataset_id: int, db: Session) -> Tup
         Tuple of (success, message, errors)
     """
     errors = []
-    rows_processed = 0
+    total_rows_processed = 0
     
     try:
-        # Parse FR sheet
-        df = parse_workshop_sheet(file_path, LOCAL_WORKSHOP_SHEET)
-        
-        # Check if required columns exist (Local Workshop uses 'Units' not 'Unit')
-        if 'Units' not in df.columns or 'Category' not in df.columns:
-            error_msg = f"Required columns 'Units' and 'Category' not found in FR sheet of {file_path.name}"
-            errors.append(error_msg)
-            return False, error_msg, errors
-        
-        # Process each row
-        for idx, row in df.iterrows():
-            unit = str(row.get('Units', '')).strip()  # Note: 'Units' not 'Unit'
-            category = str(row.get('Category', '')).strip()
-            
-            # Skip empty rows
-            if not unit or not category or unit == 'nan' or category == 'nan':
-                continue
-            
-            # Convert row to dict
-            row_dict = row.to_dict()
-            # Convert any NaN values to None and datetime objects to strings for JSON serialization
-            row_dict = {
-                k: (None if pd.isna(v) else (v.isoformat() if isinstance(v, (pd.Timestamp, datetime)) else v))
-                for k, v in row_dict.items()
-            }
-            
-            # Create LocalWorkshop entry
-            local_workshop = LocalWorkshop(
-                dataset_id=dataset_id,
-                unit=unit,
-                category=category,
-                row_data=row_dict
-            )
-            db.add(local_workshop)
-            rows_processed += 1
+        # Process each local workshop sheet
+        for sheet_name in LOCAL_WORKSHOP_SHEETS:
+            try:
+                df = parse_workshop_sheet(file_path, sheet_name)
+                
+                # Find Unit column (could be 'Unit', 'Units', etc.)
+                unit_col = None
+                for col in df.columns:
+                    if 'unit' in col.lower():
+                        unit_col = col
+                        break
+                
+                # Find Category column (could be 'Category', 'Type of Veh', etc.)
+                category_col = None
+                for col in df.columns:
+                    if 'category' in col.lower() or 'type' in col.lower():
+                        category_col = col
+                        break
+                
+                if not unit_col or not category_col:
+                    error_msg = f"Required unit and category columns not found in {sheet_name} sheet"
+                    errors.append(error_msg)
+                    continue
+                
+                rows_processed = 0
+                
+                # Process each row
+                for idx, row in df.iterrows():
+                    unit = str(row.get(unit_col, '')).strip()
+                    category = str(row.get(category_col, '')).strip()
+                    
+                    # Skip empty rows
+                    if not unit or not category or unit == 'nan' or category == 'nan':
+                        continue
+                    
+                    # Convert row to dict
+                    row_dict = row.to_dict()
+                    # Convert any NaN values to None and datetime objects to strings for JSON serialization
+                    row_dict = {
+                        k: (None if pd.isna(v) else (v.isoformat() if isinstance(v, (pd.Timestamp, datetime)) else v))
+                        for k, v in row_dict.items()
+                    }
+                    
+                    # Create LocalWorkshop entry
+                    local_workshop = LocalWorkshop(
+                        dataset_id=dataset_id,
+                        sheet_name=sheet_name,
+                        unit=unit,
+                        category=category,
+                        row_data=row_dict
+                    )
+                    db.add(local_workshop)
+                    rows_processed += 1
+                
+                total_rows_processed += rows_processed
+                print(f"[demo_service] Processed {rows_processed} rows from {sheet_name} sheet")
+                
+            except Exception as e:
+                error_msg = f"Failed to process sheet '{sheet_name}' in {file_path.name}: {str(e)}"
+                errors.append(error_msg)
+                print(f"[demo_service] {error_msg}")
         
         # Don't commit here - let the caller handle it
         # db.commit()
         
-        if rows_processed > 0:
-            return True, f"Processed {rows_processed} rows from Local Workshop FR sheet", errors
+        if total_rows_processed > 0:
+            return True, f"Processed {total_rows_processed} rows from Local Workshop sheets", errors
         else:
-            return False, "No valid rows found in Local Workshop FR sheet", errors
+            return False, "No valid rows found in Local Workshop sheets", errors
             
     except Exception as e:
         # Don't rollback here - let the caller handle it
@@ -247,9 +273,22 @@ def process_remote_workshop(file_path: Path, dataset_id: int, db: Session) -> Tu
             try:
                 df = parse_workshop_sheet(file_path, sheet_name)
                 
-                # Check if required columns exist (Remote Workshop uses 'Units' not 'Unit')
-                if 'Units' not in df.columns or 'Category' not in df.columns:
-                    error_msg = f"Required columns 'Units' and 'Category' not found in {sheet_name} sheet"
+                # Find Units column (Remote Workshop typically uses 'Units')
+                unit_col = None
+                for col in df.columns:
+                    if 'unit' in col.lower():
+                        unit_col = col
+                        break
+                
+                # Find Category column (could be 'Category', 'Category (Make and Type)', etc.)
+                category_col = None
+                for col in df.columns:
+                    if 'category' in col.lower():
+                        category_col = col
+                        break
+                
+                if not unit_col or not category_col:
+                    error_msg = f"Required unit and category columns not found in {sheet_name} sheet"
                     errors.append(error_msg)
                     continue
                 
@@ -257,8 +296,8 @@ def process_remote_workshop(file_path: Path, dataset_id: int, db: Session) -> Tu
                 
                 # Process each row
                 for idx, row in df.iterrows():
-                    unit = str(row.get('Units', '')).strip()  # Note: 'Units' not 'Unit'
-                    category = str(row.get('Category', '')).strip()
+                    unit = str(row.get(unit_col, '')).strip()
+                    category = str(row.get(category_col, '')).strip()
                     
                     # Skip empty rows
                     if not unit or not category or unit == 'nan' or category == 'nan':

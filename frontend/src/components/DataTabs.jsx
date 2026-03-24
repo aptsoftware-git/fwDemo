@@ -14,6 +14,7 @@ const FORMATION_SHEET_TYPES = [
 // Local Workshop sheet types
 const LOCAL_WORKSHOP_SHEET_TYPES = [
   { key: 'FR', label: 'FR' },
+  { key: 'SPARES', label: 'SPARES' },
 ];
 
 // Remote Workshop sheet types

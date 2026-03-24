@@ -67,23 +67,24 @@ class SheetData(Base):
 
 class LocalWorkshop(Base):
     """
-    Represents data from Local Workshop FR sheet.
+    Represents data from Local Workshop (FR and SPARES sheets).
     Unit + Category is the composite primary key and links to A Vehicle data.
     """
     __tablename__ = "local_workshop"
     
     id = Column(Integer, primary_key=True, index=True)
     dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    sheet_name = Column(String(50), nullable=False, index=True)  # "FR" or "SPARES"
     unit = Column(String(100), nullable=False, index=True)
     category = Column(String(255), nullable=False, index=True)
-    row_data = Column(JSON, nullable=False)  # All column data from FR sheet
+    row_data = Column(JSON, nullable=False)  # All column data from respective sheet
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
     dataset = relationship("Dataset")
     
     def __repr__(self):
-        return f"<LocalWorkshop(id={self.id}, unit='{self.unit}', category='{self.category}')>"
+        return f"<LocalWorkshop(id={self.id}, sheet='{self.sheet_name}', unit='{self.unit}', category='{self.category}')>"
 
 
 class RemoteWorkshop(Base):

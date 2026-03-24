@@ -237,20 +237,27 @@ async def get_data(
             # Query LocalWorkshop table
             query = db.query(LocalWorkshop).filter(LocalWorkshop.dataset_id == dataset.id)
             
-            # Apply sheet type filter (only FR for local workshop)
-            if sheet_type and sheet_type != "FR":
-                # Return empty if requesting non-FR sheet
-                return DataResponse(tag=tag, unit_filter=unit_filter, sheets={})
+            # Apply sheet type filter
+            if sheet_type:
+                query = query.filter(LocalWorkshop.sheet_name == sheet_type)
             
             workshop_records = query.all()
             
-            # Organize data as FR sheet
-            fr_data = []
+            # Organize data by sheet name
+            sheets_temp = {}
             for record in workshop_records:
-                fr_data.append(record.row_data)
+                if record.sheet_name not in sheets_temp:
+                    sheets_temp[record.sheet_name] = []
+                sheets_temp[record.sheet_name].append(record.row_data)
             
-            if fr_data:
-                sheets["FR"] = fr_data
+            # Apply unit filter if specified (Local Workshop uses 'Unit' not 'Units')
+            if unit_filter and unit_filter not in ["All", "All Units (Aggregated)"]:
+                for sheet_name, data in sheets_temp.items():
+                    filtered_data = [row for row in data if row.get('Unit') == unit_filter]
+                    if filtered_data:
+                        sheets[sheet_name] = filtered_data
+            else:
+                sheets = sheets_temp
         
         elif is_remote_workshop:
             # Query RemoteWorkshop table
