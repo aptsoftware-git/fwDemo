@@ -1,6 +1,7 @@
 """
 FRS Data Management System - FastAPI Backend
 Main application entry point.
+Updated: 2026-03-24
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

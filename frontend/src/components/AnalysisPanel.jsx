@@ -352,53 +352,158 @@ const AnalysisPanel = ({ datasets }) => {
           )}
 
           {/* Section 4: NMC over 25% */}
-          <div style={{ marginBottom: '40px' }}>
-            <h4 style={{ marginBottom: '15px', color: '#2c3e50' }}>
-              3. {analysisData.section4.title}
-            </h4>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#f5f5f5', borderBottom: '2px solid #ddd' }}>
-                    <th style={{ padding: '10px', textAlign: 'left', width: '60px' }}>S.No</th>
-                    <th style={{ padding: '10px', textAlign: 'left', width: '200px' }}>Equipment</th>
-                    <th style={{ padding: '10px', textAlign: 'left', width: '150px' }}>Unit</th>
-                    <th style={{ padding: '10px', textAlign: 'center', width: '100px' }}>NMC %</th>
-                    <th style={{ padding: '10px', textAlign: 'left' }}>Reasons</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {analysisData.section4.data.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
-                        No equipment with NMC over 25%
-                      </td>
+          {analysisData.section4 && (
+            <div style={{ marginBottom: '40px' }}>
+              <h4 style={{ marginBottom: '15px', color: '#2c3e50' }}>
+                3. {analysisData.section4.title}
+              </h4>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f5f5f5', borderBottom: '2px solid #ddd' }}>
+                      <th style={{ padding: '10px', textAlign: 'left', width: '60px' }}>S.No</th>
+                      <th style={{ padding: '10px', textAlign: 'left', width: '200px' }}>Equipment</th>
+                      <th style={{ padding: '10px', textAlign: 'left', width: '150px' }}>Unit</th>
+                      <th style={{ padding: '10px', textAlign: 'center', width: '100px' }}>NMC %</th>
+                      <th style={{ padding: '10px', textAlign: 'left' }}>Reasons</th>
                     </tr>
-                  ) : (
-                    analysisData.section4.data.map((row) => (
-                      <tr key={row.serial_no} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ padding: '10px' }}>{row.serial_no}</td>
-                        <td style={{ padding: '10px' }}>{row.equipment}</td>
-                        <td style={{ padding: '10px' }}>{row.unit}</td>
-                        <td style={{ 
+                  </thead>
+                  <tbody>
+                    {analysisData.section4.data.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
+                          No equipment with NMC over 25%
+                        </td>
+                      </tr>
+                    ) : (
+                      analysisData.section4.data.map((row) => (
+                        <tr key={row.serial_no} style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '10px' }}>{row.serial_no}</td>
+                          <td style={{ padding: '10px' }}>{row.equipment}</td>
+                          <td style={{ padding: '10px' }}>{row.unit}</td>
+                          <td style={{ 
+                            padding: '10px', 
+                            textAlign: 'center',
+                            color: '#e74c3c',
+                            fontWeight: 'bold'
+                          }}>
+                            {row.nmc_percent.toFixed(2)}
+                          </td>
+                          <td style={{ padding: '10px', whiteSpace: 'pre-wrap' }}>{row.reasons || '-'}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: '10px', fontSize: '13px', color: '#666' }}>
+                Total rows: {analysisData.section4.data?.length || 0}
+              </div>
+            </div>
+          )}
+
+          {/* Section 5: Equipment pending repairs for over three months (Local Workshop) */}
+          {analysisData.section5 && (
+            <div style={{ marginBottom: '40px' }}>
+              <h4 style={{ marginBottom: '15px', color: '#2c3e50' }}>
+                4. {analysisData.section5.title}
+              </h4>
+              <div style={{ marginBottom: '15px', fontSize: '13px', color: '#666' }}>
+                Dataset: {analysisData.section5.dataset} | Total Pending: <strong>{analysisData.section5.total_pending}</strong>
+              </div>
+
+              {analysisData.section5.data.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#999', backgroundColor: '#f9f9f9', borderRadius: '4px' }}>
+                  No equipment pending repairs for over three months
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f5f5f5', borderBottom: '2px solid #ddd' }}>
+                        <th style={{ padding: '10px', textAlign: 'left', minWidth: '50px' }}>S.No</th>
+                        <th style={{ padding: '10px', textAlign: 'left', minWidth: '80px' }}>NMC Type</th>
+                        <th style={{ padding: '10px', textAlign: 'left', minWidth: '150px' }}>Unit</th>
+                        <th style={{ padding: '10px', textAlign: 'left', minWidth: '120px' }}>Dependent WorkShop</th>
+                        <th style={{ padding: '10px', textAlign: 'left', minWidth: '150px' }}>Equipment</th>
+                        <th style={{ padding: '10px', textAlign: 'left', minWidth: '120px' }}>Tk BA No</th>
+                        <th style={{ padding: '10px', textAlign: 'left', minWidth: '150px' }}>Sys/ Sub Sys</th>
+                        <th style={{ padding: '10px', textAlign: 'left', minWidth: '200px' }}>Nature of Defect</th>
+                        <th style={{ padding: '10px', textAlign: 'left', minWidth: '120px' }}>Defect Date</th>
+                        <th style={{ 
                           padding: '10px', 
-                          textAlign: 'center',
-                          color: '#e74c3c',
+                          textAlign: 'center', 
+                          minWidth: '100px',
+                          backgroundColor: '#fff3cd',
                           fontWeight: 'bold'
                         }}>
-                          {row.nmc_percent.toFixed(2)}
-                        </td>
-                        <td style={{ padding: '10px', whiteSpace: 'pre-wrap' }}>{row.reasons || '-'}</td>
+                          Pending Repairs Since (Days)
+                        </th>
+                        <th style={{ padding: '10px', textAlign: 'left', minWidth: '200px' }}>Reasons</th>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {analysisData.section5.data.map((row) => {
+                        // Determine row color based on pending days
+                        let rowColor = 'transparent';
+                        if (row.pending_days !== null) {
+                          if (row.pending_days > 180) {
+                            rowColor = '#ffe6e6'; // Red tint for > 180 days (6 months)
+                          } else if (row.pending_days > 120) {
+                            rowColor = '#fff3cd'; // Yellow tint for > 120 days (4 months)
+                          }
+                        }
+
+                        return (
+                          <tr 
+                            key={row.serial_no} 
+                            style={{ 
+                              borderBottom: '1px solid #eee',
+                              backgroundColor: rowColor
+                            }}
+                          >
+                            <td style={{ padding: '10px' }}>{row.serial_no}</td>
+                            <td style={{ 
+                              padding: '10px',
+                              fontWeight: 'bold',
+                              color: row.nmc_type === 'FR' ? '#e74c3c' : '#3498db'
+                            }}>
+                              {row.nmc_type}
+                            </td>
+                            <td style={{ padding: '10px' }}>{row.unit}</td>
+                            <td style={{ padding: '10px' }}>{row.dependent_workshop}</td>
+                            <td style={{ padding: '10px' }}>{row.equipment}</td>
+                            <td style={{ padding: '10px' }}>{row.tk_ba_no}</td>
+                            <td style={{ padding: '10px' }}>{row.sys_sub_sys}</td>
+                            <td style={{ padding: '10px', maxWidth: '200px', wordWrap: 'break-word' }}>
+                              {row.nature_of_defect}
+                            </td>
+                            <td style={{ padding: '10px' }}>
+                              {row.defect_dt ? new Date(row.defect_dt).toLocaleDateString('en-GB') : '-'}
+                            </td>
+                            <td style={{ 
+                              padding: '10px', 
+                              textAlign: 'center',
+                              fontWeight: 'bold',
+                              color: row.pending_days > 180 ? '#c0392b' : row.pending_days > 120 ? '#d68910' : '#27ae60'
+                            }}>
+                              {row.pending_days !== null ? row.pending_days : '-'}
+                            </td>
+                            <td style={{ padding: '10px', maxWidth: '200px', wordWrap: 'break-word' }}>
+                              {row.reasons || '-'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div style={{ marginTop: '10px', fontSize: '13px', color: '#666' }}>
+                Total rows: {analysisData.section5.data?.length || 0}
+              </div>
             </div>
-            <div style={{ marginTop: '10px', fontSize: '13px', color: '#666' }}>
-              Total rows: {analysisData.section4.data?.length || 0}
-            </div>
-          </div>
+          )}
         </div>
       )}
       </div>

@@ -9,7 +9,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 
 from database import get_db
-from models import Dataset, Unit, SheetData, RemoteWorkshop
+from models import Dataset, Unit, SheetData, RemoteWorkshop, LocalWorkshop
 from schemas import MessageResponse
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
@@ -21,11 +21,12 @@ async def analyze_a_vehicles(db: Session = Depends(get_db)):
     Generate A Vehicles analysis report comparing November 2025 vs December 2025.
     
     Returns:
-        Analysis report with four sections:
+        Analysis report with five sections:
         1. Changes in Authorized/Held
         2. Changes in Eng/MUA (NMC)
-        3. NMC over 25%
-        4. Pending Demands (Remote Workshop)
+        3. Pending Demands (Remote Workshop)
+        4. Equipment pending repairs for over three months (Local Workshop)
+        5. NMC over 25%
     """
     try:
         # Find November and December 2025 datasets
@@ -50,7 +51,10 @@ async def analyze_a_vehicles(db: Session = Depends(get_db)):
         section3_pending = generate_pending_demands(db)
         
         # Generate section 4: NMC over 25%
-        section4 = generate_nmc_over_25(dec_data)
+        section4_nmc = generate_nmc_over_25(dec_data)
+        
+        # Generate section 5: Equipment pending repairs over 3 months from Local Workshop December 2025
+        section5_repairs = generate_pending_repairs(db)
         
         return {
             "title": "A Vehicles: FRS Previous vs Current Month changes",
@@ -73,7 +77,13 @@ async def analyze_a_vehicles(db: Session = Depends(get_db)):
             },
             "section4": {
                 "title": "NMC over 25%",
-                "data": section4
+                "data": section4_nmc
+            },
+            "section5": {
+                "title": "Equipment pending repairs for over three months",
+                "data": section5_repairs["data"],
+                "dataset": section5_repairs["dataset"],
+                "total_pending": section5_repairs["total_pending"]
             }
         }
     
@@ -408,6 +418,132 @@ def generate_pending_demands(db: Session) -> Dict[str, Any]:
     
     except Exception as e:
         print(f"Error generating pending demands: {e}")
+        return {
+            "dataset": "Error",
+            "total_pending": 0,
+            "data": []
+        }
+
+
+def generate_pending_repairs(db: Session) -> Dict[str, Any]:
+    """
+    Get equipment pending repairs for over 3 months from Local Workshop (December 2025).
+    
+    Filters:
+    - Dataset: "Local Workshop December 2025"
+    - Sheets: "FR", "SPARES"
+    - Repair Status (Yes/ No): "No" or "NO"
+    - Pending Repairs Since (days) > 90 days (3 months)
+    
+    Returns table with:
+    - Serial No (sequential)
+    - NMC Type ("FR" or "SPARES")
+    - Unit
+    - Dependent WorkShop
+    - Equipment (Category)
+    - Tk BA No
+    - Sys/ Sub Sys
+    - Nature of Defect
+    - Defect dt
+    - Pending Repairs Since (days)
+    - Reasons (Remarks)
+    """
+    try:
+        # Find Local Workshop December 2025 dataset
+        dataset = db.query(Dataset).filter(
+            Dataset.tag.like("%Local Workshop%"),
+            Dataset.tag.like("%December%"),
+            Dataset.tag.like("%2025%")
+        ).first()
+        
+        if not dataset:
+            # Return empty result if Local Workshop dataset not found
+            return {
+                "dataset": "Local Workshop December 2025 (Not Found)",
+                "total_pending": 0,
+                "data": []
+            }
+        
+        # Query Local Workshop data for FR and SPARES sheets
+        sheet_names = ["FR", "SPARES"]
+        local_data = db.query(LocalWorkshop).filter(
+            LocalWorkshop.dataset_id == dataset.id,
+            LocalWorkshop.sheet_name.in_(sheet_names)
+        ).all()
+        
+        # Process and filter data
+        result = []
+        serial_no = 1
+        current_date = datetime.now(timezone.utc)
+        
+        for record in local_data:
+            row_data = record.row_data
+            
+            # Get repair status - check various possible column names (including with newlines and spaces from Excel)
+            repair_status = (
+                row_data.get("Repair Status (Yes/ No)", "") or
+                row_data.get("Repair Status", "") or
+                row_data.get("Repair Status (Yes/No)", "") or
+                row_data.get("Repair\nStatus\n(Yes/ No)", "") or  # Column name may have newlines from Excel
+                row_data.get("Repair\nStatus \n(Yes/ No)", "") or # With space after Status
+                row_data.get("Repair\nStatus", "")
+            )
+            
+            # Filter: Repair Status is "No" or "NO"
+            if str(repair_status).strip().upper() not in ["NO", "N"]:
+                continue
+            
+            # Get defect date
+            defect_dt_str = row_data.get("Defect dt", "")
+            
+            # Calculate pending days
+            pending_days = None
+            if defect_dt_str:
+                try:
+                    # Parse the defect date (ISO format from database)
+                    if isinstance(defect_dt_str, str):
+                        defect_dt = datetime.fromisoformat(defect_dt_str.replace('Z', '+00:00'))
+                    else:
+                        defect_dt = defect_dt_str
+                    
+                    # Calculate difference in days
+                    if defect_dt:
+                        delta = current_date - defect_dt.replace(tzinfo=timezone.utc) if defect_dt.tzinfo is None else current_date - defect_dt
+                        pending_days = delta.days
+                except Exception as e:
+                    print(f"Error parsing defect date: {e}")
+                    pending_days = None
+            
+            # Filter: Pending days > 90 (3 months)
+            if pending_days is None or pending_days <= 90:
+                continue
+            
+            # Build result row
+            result_row = {
+                "serial_no": serial_no,
+                "nmc_type": record.sheet_name,  # "FR" or "SPARES"
+                "unit": record.unit,
+                "dependent_workshop": row_data.get("Dependent Wksp", "") or row_data.get("Dependent Workshop", ""),
+                "equipment": record.category,
+                "tk_ba_no": row_data.get("Tk BA No", "") or row_data.get("TK BA No", ""),
+                "sys_sub_sys": row_data.get("Sys/ Sub Sys", "") or row_data.get("System/ Sub System", ""),
+                "nature_of_defect": row_data.get("Nature of Defect", ""),
+                "defect_dt": defect_dt_str,
+                "pending_days": pending_days,
+                "reasons": row_data.get("Remarks", "") or row_data.get("Reason", "")
+            }
+            
+            result.append(result_row)
+            serial_no += 1
+        
+        return {
+            "dataset": dataset.tag,
+            "total_pending": len(result),
+            "data": result
+        }
+    
+    except Exception as e:
+        print(f"Error generating pending repairs: {e}")
         return {
             "dataset": "Error",
             "total_pending": 0,
