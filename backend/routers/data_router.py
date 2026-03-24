@@ -2,24 +2,38 @@
 Data router for FRS Data Management System API.
 Handles all data-related endpoints.
 """
+import os
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
 
 from database import get_db
-from models import Dataset, Unit, SheetData
+from models import Dataset, Unit, SheetData, LocalWorkshop, RemoteWorkshop
 from schemas import (
     DatasetResponse, UploadRequest, UploadResponse, DataResponse,
     ComparisonRequest, ComparisonResponse, MessageResponse, ErrorResponse,
     UnitResponse, SummaryRequest, SummaryResponse
 )
 from services.upload_service import process_directory
+# DEMO: Import demo service for hardcoded data loading
+from services.demo_service import load_demo_data, clean_all_data
 from services.llm_service import compare_datasets as llm_compare_datasets, generate_summary
 from config import SHEET_TYPE_ORDER
 from processors import aggregate_by_category
 
 router = APIRouter(prefix="/api", tags=["data"])
+
+
+@router.get("/config")
+async def get_config():
+    """
+    Get application configuration including demo data paths.
+    """
+    return {
+        "demo_base_path": os.getenv('DEMO_BASE_PATH', r'C:\Anu\APT\apt\army\fortwilliam\code\fwDemo\data\FRS_cleaned'),
+        "demo_formation": os.getenv('DEMO_FORMATION', 'Fmn D')
+    }
 
 
 @router.post("/upload", response_model=UploadResponse)
@@ -77,6 +91,60 @@ async def upload_directory(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# DEMO: New endpoints for simplified demo version
+@router.post("/demo/load", response_model=MessageResponse)
+async def load_demo_data_endpoint(db: Session = Depends(get_db)):
+    """
+    Load demo data from hardcoded path.
+    Loads Fmn D data from Nov and Dec directories.
+    
+    Args:
+        db: Database session
+    
+    Returns:
+        Success message with any errors encountered
+    """
+    try:
+        success, message, errors = load_demo_data(db)
+        
+        if success:
+            return MessageResponse(message=message)
+        else:
+            # Return error as 400 with details
+            error_detail = f"{message}. Errors: {'; '.join(errors)}" if errors else message
+            raise HTTPException(status_code=400, detail=error_detail)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/demo/clean", response_model=MessageResponse)
+async def clean_demo_data_endpoint(db: Session = Depends(get_db)):
+    """
+    Clean all data from the database.
+    
+    Args:
+        db: Database session
+    
+    Returns:
+        Success message
+    """
+    try:
+        success, message = clean_all_data(db)
+        
+        if success:
+            return MessageResponse(message=message)
+        else:
+            raise HTTPException(status_code=400, detail=message)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/datasets", response_model=List[DatasetResponse])
 async def get_datasets(db: Session = Depends(get_db)):
     """
@@ -93,7 +161,28 @@ async def get_datasets(db: Session = Depends(get_db)):
         
         result = []
         for dataset in datasets:
-            unit_count = db.query(Unit).filter(Unit.dataset_id == dataset.id).count()
+            # Calculate unit_count based on dataset type
+            if "Local Workshop" in dataset.tag:
+                # For Local Workshop, count distinct formations (all are Formation D)
+                # Use raw SQL via text() to query JSON field
+                from sqlalchemy import text
+                query_result = db.execute(
+                    text("SELECT COUNT(DISTINCT row_data->>'Formation') FROM local_workshop WHERE dataset_id = :dataset_id"),
+                    {"dataset_id": dataset.id}
+                )
+                unit_count = query_result.scalar() or 0
+            elif "Remote Workshop" in dataset.tag:
+                # For Remote Workshop, count distinct formations (all are Formation D)
+                from sqlalchemy import text
+                query_result = db.execute(
+                    text("SELECT COUNT(DISTINCT row_data->>'Formation') FROM remote_workshop WHERE dataset_id = :dataset_id"),
+                    {"dataset_id": dataset.id}
+                )
+                unit_count = query_result.scalar() or 0
+            else:
+                # For Formation datasets, count units in unit table
+                unit_count = db.query(Unit).filter(Unit.dataset_id == dataset.id).count()
+            
             result.append(DatasetResponse(
                 id=dataset.id,
                 tag=dataset.tag,
@@ -118,6 +207,10 @@ async def get_data(
 ):
     """
     Get data for a specific dataset with optional filtering.
+    Supports three types of datasets:
+    1. Formation datasets (November/December 2025) - A Veh, B Veh, C Veh, ARMT, SA
+    2. Local Workshop datasets - FR sheet
+    3. Remote Workshop datasets - Eng, EOA Spares, MUA sheets
     
     Args:
         tag: Dataset tag
@@ -134,78 +227,126 @@ async def get_data(
         if not dataset:
             raise HTTPException(status_code=404, detail=f"Dataset not found: {tag}")
         
-        # Build query based on filters
-        query = db.query(SheetData).join(Unit).filter(Unit.dataset_id == dataset.id)
+        # Determine dataset type based on tag
+        is_local_workshop = "Local Workshop" in tag
+        is_remote_workshop = "Remote Workshop" in tag
         
-        # Apply unit filter
-        if unit_filter != "All":
-            query = query.filter(Unit.unit_name == unit_filter)
-        
-        # Apply sheet type filter
-        if sheet_type:
-            query = query.filter(SheetData.sheet_type == sheet_type)
-        
-        # Fetch data
-        sheet_data_records = query.all()
-        
-        # Organize data by sheet type in standard order
-        # First, collect all data by sheet type
-        sheets_temp = {}
-        for record in sheet_data_records:
-            if record.sheet_type not in sheets_temp:
-                sheets_temp[record.sheet_type] = []
-            sheets_temp[record.sheet_type].extend(record.row_data)
-        
-        # Apply aggregation if "All" units selected
-        if unit_filter == "All":
-            # Aggregate by category for each sheet type
-            for sheet_type, rows in sheets_temp.items():
-                sheets_temp[sheet_type] = aggregate_by_category(rows, use_ai_for_remarks=False)
-        else:
-            # Even for single units, standardize column names for consistency
-            from processors.data_cleaner import standardize_column_name
-            for sheet_type, rows in sheets_temp.items():
-                standardized_rows = []
-                for row in rows:
-                    standardized_row = {}
-                    for key, value in row.items():
-                        standard_key = standardize_column_name(key)
-                        standardized_row[standard_key] = value
-                    standardized_rows.append(standardized_row)
-                
-                # For ARMT sheets, rename 'Category (Make & Type)' to 'Make & Eqpt' and reorder
-                if standardized_rows:
-                    # Check for ARMT-specific columns
-                    armt_indicators = ['Eng/ Brl', 'Spares', 'MR', 'FR', 'OBE', 'PMC (Nos) (Due to OH)', 'NMC%', 'PMC%', 'Avl%']
-                    sample_keys = list(standardized_rows[0].keys())
-                    is_armt = any(col in sample_keys for col in armt_indicators)
-                    
-                    if is_armt and 'Category (Make & Type)' in sample_keys:
-                        # Rename category column for ARMT sheets and maintain proper order
-                        reordered_rows = []
-                        for row in standardized_rows:
-                            new_row = {}
-                            for key in row.keys():
-                                if key == 'Category (Make & Type)':
-                                    new_row['Make & Eqpt'] = row[key]
-                                else:
-                                    new_row[key] = row[key]
-                            reordered_rows.append(new_row)
-                        standardized_rows = reordered_rows
-                
-                sheets_temp[sheet_type] = standardized_rows
-        
-        # Build ordered dictionary following SHEET_TYPE_ORDER
         sheets = {}
-        for sheet_type in SHEET_TYPE_ORDER:
-            if sheet_type in sheets_temp:
-                sheets[sheet_type] = sheets_temp[sheet_type]
         
-        # Add any additional sheets not in standard order (e.g., A veh)
-        for sheet_type, data in sheets_temp.items():
-            if sheet_type not in sheets:
-                sheets[sheet_type] = data
+        if is_local_workshop:
+            # Query LocalWorkshop table
+            query = db.query(LocalWorkshop).filter(LocalWorkshop.dataset_id == dataset.id)
+            
+            # Apply sheet type filter (only FR for local workshop)
+            if sheet_type and sheet_type != "FR":
+                # Return empty if requesting non-FR sheet
+                return DataResponse(tag=tag, unit_filter=unit_filter, sheets={})
+            
+            workshop_records = query.all()
+            
+            # Organize data as FR sheet
+            fr_data = []
+            for record in workshop_records:
+                fr_data.append(record.row_data)
+            
+            if fr_data:
+                sheets["FR"] = fr_data
         
+        elif is_remote_workshop:
+            # Query RemoteWorkshop table
+            query = db.query(RemoteWorkshop).filter(RemoteWorkshop.dataset_id == dataset.id)
+            
+            # Apply sheet type filter
+            if sheet_type:
+                query = query.filter(RemoteWorkshop.sheet_name == sheet_type)
+            
+            workshop_records = query.all()
+            
+            # Organize data by sheet name
+            sheets_temp = {}
+            for record in workshop_records:
+                if record.sheet_name not in sheets_temp:
+                    sheets_temp[record.sheet_name] = []
+                sheets_temp[record.sheet_name].append(record.row_data)
+            
+            # Order sheets: Eng, EOA Spares, MUA
+            for sheet_name in ["Eng", "EOA Spares", "MUA"]:
+                if sheet_name in sheets_temp:
+                    sheets[sheet_name] = sheets_temp[sheet_name]
+        
+        else:
+            # Standard formation dataset - query Unit/SheetData tables
+            query = db.query(SheetData).join(Unit).filter(Unit.dataset_id == dataset.id)
+            
+            # Apply unit filter
+            if unit_filter != "All":
+                query = query.filter(Unit.unit_name == unit_filter)
+            
+            # Apply sheet type filter
+            if sheet_type:
+                query = query.filter(SheetData.sheet_type == sheet_type)
+            
+            # Fetch data
+            sheet_data_records = query.all()
+            
+            # Organize data by sheet type in standard order
+            # First, collect all data by sheet type
+            sheets_temp = {}
+            for record in sheet_data_records:
+                if record.sheet_type not in sheets_temp:
+                    sheets_temp[record.sheet_type] = []
+                sheets_temp[record.sheet_type].extend(record.row_data)
+            
+            # Apply aggregation if "All" units selected
+            # DEMO: For demo purposes, disable aggregation to show raw data
+            # if unit_filter == "All":
+            #     # Aggregate by category for each sheet type
+            #     for sheet_type, rows in sheets_temp.items():
+            #         sheets_temp[sheet_type] = aggregate_by_category(rows, use_ai_for_remarks=False)
+            # else:
+            if True:  # Always show non-aggregated data
+                # Even for single units, standardize column names for consistency
+                from processors.data_cleaner import standardize_column_name
+                for sheet_type, rows in sheets_temp.items():
+                    standardized_rows = []
+                    for row in rows:
+                        standardized_row = {}
+                        for key, value in row.items():
+                            standard_key = standardize_column_name(key)
+                            standardized_row[standard_key] = value
+                        standardized_rows.append(standardized_row)
+                    
+                    # For ARMT sheets, rename 'Category (Make & Type)' to 'Make & Eqpt' and reorder
+                    if standardized_rows:
+                        # Check for ARMT-specific columns
+                        armt_indicators = ['Eng/ Brl', 'Spares', 'MR', 'FR', 'OBE', 'PMC (Nos) (Due to OH)', 'NMC%', 'PMC%', 'Avl%']
+                        sample_keys = list(standardized_rows[0].keys())
+                        is_armt = any(col in sample_keys for col in armt_indicators)
+                        
+                        if is_armt and 'Category (Make & Type)' in sample_keys:
+                            # Rename category column for ARMT sheets and maintain proper order
+                            reordered_rows = []
+                            for row in standardized_rows:
+                                new_row = {}
+                                for key in row.keys():
+                                    if key == 'Category (Make & Type)':
+                                        new_row['Make & Eqpt'] = row[key]
+                                    else:
+                                        new_row[key] = row[key]
+                                reordered_rows.append(new_row)
+                            standardized_rows = reordered_rows
+                    
+                    sheets_temp[sheet_type] = standardized_rows
+            
+            # Build ordered dictionary following SHEET_TYPE_ORDER
+            for sheet_type in SHEET_TYPE_ORDER:
+                if sheet_type in sheets_temp:
+                    sheets[sheet_type] = sheets_temp[sheet_type]
+            
+            # Add any additional sheets not in standard order
+            for sheet_type, data in sheets_temp.items():
+                if sheet_type not in sheets:
+                    sheets[sheet_type] = data
         return DataResponse(
             tag=tag,
             unit_filter=unit_filter,

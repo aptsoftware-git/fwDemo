@@ -27,16 +27,28 @@ const DataTable = ({ data, sheetType }) => {
             <tr key={index}>
               {columns.map((col) => {
                 const isRemarksColumn = col.toLowerCase().includes('remark');
-                const isPercentageColumn = col === 'FMC%' || col === 'NMC%' || col === 'PMC%' || col === 'Avl%';
+                // Check if column is a percentage column (matches: 'FMC%', 'FMC %', 'FMC_PCT', 'NMC_Percent', etc.)
+                const colLower = col.toLowerCase().replace(/\s+/g, '');
+                const isPercentageColumn = 
+                  col.includes('%') || 
+                  colLower.includes('pct') || 
+                  colLower.includes('percent') ||
+                  colLower.endsWith('avl') && colLower.includes('%');
                 
                 // Format cell value
                 let cellValue = row[col];
                 if (cellValue !== null && cellValue !== undefined) {
                   if (isPercentageColumn) {
-                    // Convert decimal to percentage (0.8918918918918919 → 89.19%)
+                    // Handle both decimal values (0.8919) and percentage values (89.19)
                     const numValue = parseFloat(cellValue);
                     if (!isNaN(numValue)) {
-                      cellValue = (numValue * 100).toFixed(2) + '%';
+                      // If value is less than 1, assume it's a decimal (0.8919 → 89.19)
+                      // If value is >= 1, assume it's already a percentage (89.19 → 89.19)
+                      if (numValue < 1 && numValue >= 0) {
+                        cellValue = (numValue * 100).toFixed(2);
+                      } else {
+                        cellValue = numValue.toFixed(2);
+                      }
                     } else {
                       cellValue = String(cellValue);
                     }

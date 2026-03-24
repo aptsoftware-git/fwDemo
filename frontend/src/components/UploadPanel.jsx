@@ -1,6 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { uploadDirectory } from '../api/client';
 
+/**
+ * GENERIC FEATURE: This component is currently hidden for demo purposes.
+ * See DemoLoadPanel.jsx for the simplified demo version.
+ * To re-enable: Uncomment import and usage in App.jsx
+ */
 const UploadPanel = ({ onUploadSuccess }) => {
   const [directoryPath, setDirectoryPath] = useState('');
   const [tag, setTag] = useState('');

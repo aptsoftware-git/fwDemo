@@ -1,6 +1,13 @@
 """
 Upload service for FRS Data Management System.
 Handles directory processing, file parsing, and database storage.
+
+GENERIC FEATURE: This service is currently hidden for demo purposes.
+For demo, see services/demo_service.py which loads from hardcoded paths.
+To re-enable generic upload:
+1. Uncomment import in routers/data_router.py
+2. Uncomment UploadPanel import in frontend/src/App.jsx
+3. Uncomment UploadPanel usage in App.jsx
 """
 import os
 import re

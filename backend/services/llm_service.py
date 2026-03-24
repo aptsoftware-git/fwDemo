@@ -47,8 +47,9 @@ def extract_numeric_value(value) -> float:
 
 
 # Global state for current loaded model
+# Use LLM_MODEL from .env config
 _current_model = {
-    "name": DEFAULT_MODEL,
+    "name": LLM_MODEL,
     "loaded": False,
     "timeout": LLM_TIMEOUT
 }
@@ -268,14 +269,16 @@ def get_current_model() -> Dict:
 
 def initialize_default_model():
     """Initialize the default model on startup."""
-    print(f"Initializing default model: {DEFAULT_MODEL}")
-    result = load_model(DEFAULT_MODEL)
+    # Use LLM_MODEL from .env config instead of hardcoded DEFAULT_MODEL
+    model_to_load = LLM_MODEL
+    print(f"Initializing default model: {model_to_load}")
+    result = load_model(model_to_load)
     if result["success"]:
         print(f"✓ Default model loaded successfully")
     else:
         print(f"Warning: Could not load default model: {result['message']}")
         # Still set it as current even if loading failed (will load on first use)
-        _current_model["name"] = DEFAULT_MODEL
+        _current_model["name"] = model_to_load
         _current_model["loaded"] = False
 
 

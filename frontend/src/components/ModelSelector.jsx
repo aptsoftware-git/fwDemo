@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getAvailableModels, getCurrentModel, loadModel } from '../api/client';
+import { getAvailableModels, getCurrentModel, loadModel, cleanDemoData } from '../api/client';
 
-const ModelSelector = () => {
+const ModelSelector = ({ onClear, onToggleDetails, showDetails }) => {
   const [models, setModels] = useState([]);
   const [currentModel, setCurrentModel] = useState(null);
   const [selectedModel, setSelectedModel] = useState('');
@@ -63,6 +63,22 @@ const ModelSelector = () => {
       console.error('Failed to load model:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleClear = async () => {
+    if (!window.confirm('Are you sure you want to clean the database? This will remove all loaded data.')) {
+      return;
+    }
+
+    try {
+      await cleanDemoData();
+      if (onClear) {
+        onClear();
+      }
+      alert('Database cleaned successfully!');
+    } catch (err) {
+      alert('Failed to clean database: ' + (err.response?.data?.detail || err.message));
     }
   };
 
@@ -138,6 +154,44 @@ const ModelSelector = () => {
           <span className="model-description">{currentModel.description}</span>
         </div>
       )}
+
+      <div className="header-actions" style={{ 
+        display: 'flex', 
+        gap: '10px', 
+        marginTop: '10px',
+        justifyContent: 'flex-end' 
+      }}>
+        <button
+          onClick={handleClear}
+          className="btn-clear"
+          style={{
+            backgroundColor: '#e74c3c',
+            color: 'white',
+            border: 'none',
+            padding: '8px 16px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px'
+          }}
+        >
+          Clear
+        </button>
+        <button
+          onClick={onToggleDetails}
+          className="btn-toggle-details"
+          style={{
+            backgroundColor: '#3498db',
+            color: 'white',
+            border: 'none',
+            padding: '8px 16px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px'
+          }}
+        >
+          {showDetails ? 'Hide Details' : 'Show Details'}
+        </button>
+      </div>
     </div>
   );
 };

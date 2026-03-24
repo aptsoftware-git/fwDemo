@@ -10,6 +10,7 @@ from config import BACKEND_HOST, BACKEND_PORT, CORS_ORIGINS, LOG_LEVEL, get_conf
 from database import init_db
 from routers.data_router import router as data_router
 from routers.model_router import router as model_router
+from routers.analysis_router import router as analysis_router
 from services.llm_service import initialize_default_model
 
 # Configure logging
@@ -38,6 +39,7 @@ app.add_middleware(
 # Include routers
 app.include_router(data_router)
 app.include_router(model_router, prefix="/api", tags=["models"])
+app.include_router(analysis_router)
 
 
 @app.on_event("startup")
