@@ -20,7 +20,7 @@ DEMO_FORMATION = os.getenv('DEMO_FORMATION', 'Fmn D')
 # Sheet mappings for different file types
 FORMATION_SHEETS = ["A Vehicle", "B Vehicle", "C Vehicle", "ARMT", "SA"]
 LOCAL_WORKSHOP_SHEETS = ["FR", "SPARES"]
-REMOTE_WORKSHOP_SHEETS = ["Eng", "EOA Spares", "MUA"]
+REMOTE_WORKSHOP_SHEETS = ["Eng", "EOA Spares", "VOR Spares"]
 
 # Map Excel sheet names to database sheet type keys
 SHEET_TYPE_MAPPING = {

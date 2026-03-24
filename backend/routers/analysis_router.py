@@ -56,6 +56,9 @@ async def analyze_a_vehicles(db: Session = Depends(get_db)):
         # Generate section 5: Equipment pending repairs over 3 months from Local Workshop December 2025
         section5_repairs = generate_pending_repairs(db)
         
+        # Generate section 6: Demands not placed or controlled for over 2 months (pending > 60 days)
+        section6_demands_over_60 = generate_pending_demands_over_60(db)
+        
         return {
             "title": "A Vehicles: FRS Previous vs Current Month changes",
             "previous_month": "November 2025",
@@ -84,6 +87,12 @@ async def analyze_a_vehicles(db: Session = Depends(get_db)):
                 "data": section5_repairs["data"],
                 "dataset": section5_repairs["dataset"],
                 "total_pending": section5_repairs["total_pending"]
+            },
+            "section6": {
+                "title": "Demands not placed or not controlled for over 2 months",
+                "data": section6_demands_over_60["data"],
+                "dataset": section6_demands_over_60["dataset"],
+                "total_pending": section6_demands_over_60["total_pending"]
             }
         }
     
@@ -325,11 +334,11 @@ def generate_pending_demands(db: Session) -> Dict[str, Any]:
     
     Filters:
     - Dataset: "Remote Workshop December 2025"
-    - Sheets: "Eng", "EOA Spares", "MUA"
-    - Control date: blank or "NVR"
+    - Sheets: "Eng", "EOA Spares", "VOR Spares"
+    - Control date: blank or "NYR" (case-sensitive)
     
     Returns table with all columns plus:
-    - NMC Type (one of: "Eng", "EOA Spares", "MUA")
+    - NMC Type (one of: "Eng", "EOA Spares", "VOR Spares")
     - Pending (Days): days between current date and Demand dt
     """
     try:
@@ -348,8 +357,8 @@ def generate_pending_demands(db: Session) -> Dict[str, Any]:
                 "data": []
             }
         
-        # Query Remote Workshop data for Eng, EOA Spares, and MUA sheets
-        sheet_names = ["Eng", "EOA Spares", "MUA"]
+        # Query Remote Workshop data for Eng, EOA Spares, and VOR Spares sheets
+        sheet_names = ["Eng", "EOA Spares", "VOR Spares"]
         remote_data = db.query(RemoteWorkshop).filter(
             RemoteWorkshop.dataset_id == dataset.id,
             RemoteWorkshop.sheet_name.in_(sheet_names)
@@ -364,8 +373,9 @@ def generate_pending_demands(db: Session) -> Dict[str, Any]:
             row_data = record.row_data
             control_date = row_data.get("Control date", "")
             
-            # Filter: Control date is blank, None, or "NVR"
-            if not control_date or str(control_date).strip().upper() in ["", "NVR", "NONE", "NULL"]:
+            # Filter: Control date is blank, None, or "NYR" (case-sensitive)
+            control_date_str = str(control_date).strip() if control_date else ""
+            if not control_date_str or control_date_str in ["NYR", "NONE", "NULL"]:
                 demand_dt_str = row_data.get("Demand dt")
                 
                 # Calculate pending days
@@ -389,7 +399,7 @@ def generate_pending_demands(db: Session) -> Dict[str, Any]:
                 # Build result row
                 result_row = {
                     "serial_no": serial_no,
-                    "nmc_type": record.sheet_name,  # "Eng", "EOA Spares", or "MUA"
+                    "nmc_type": record.sheet_name,  # "Eng", "EOA Spares", or "VOR Spares"
                     "category": row_data.get("Category", ""),
                     "veh_ba_no": row_data.get("Veh BA No", ""),
                     "formation": row_data.get("Formation", ""),
@@ -418,6 +428,114 @@ def generate_pending_demands(db: Session) -> Dict[str, Any]:
     
     except Exception as e:
         print(f"Error generating pending demands: {e}")
+        return {
+            "dataset": "Error",
+            "total_pending": 0,
+            "data": []
+        }
+
+
+def generate_pending_demands_over_60(db: Session) -> Dict[str, Any]:
+    """
+    Get pending demands over 60 days (2 months) from Remote Workshop (December 2025).
+    
+    Filters:
+    - Dataset: "Remote Workshop December 2025"
+    - Sheets: "Eng", "EOA Spares", "VOR Spares"
+    - Control date: blank or "NYR" (case-sensitive)
+    - Pending days: > 60 days
+    
+    Returns same table structure as generate_pending_demands but filtered for > 60 days.
+    """
+    try:
+        # Find Remote Workshop December 2025 dataset
+        dataset = db.query(Dataset).filter(
+            Dataset.tag.like("%Remote Workshop%"),
+            Dataset.tag.like("%December%"),
+            Dataset.tag.like("%2025%")
+        ).first()
+        
+        if not dataset:
+            # Return empty result if Remote Workshop dataset not found
+            return {
+                "dataset": "Remote Workshop December 2025 (Not Found)",
+                "total_pending": 0,
+                "data": []
+            }
+        
+        # Query Remote Workshop data for Eng, EOA Spares, and VOR Spares sheets
+        sheet_names = ["Eng", "EOA Spares", "VOR Spares"]
+        remote_data = db.query(RemoteWorkshop).filter(
+            RemoteWorkshop.dataset_id == dataset.id,
+            RemoteWorkshop.sheet_name.in_(sheet_names)
+        ).all()
+        
+        # Process and filter data
+        result = []
+        serial_no = 1
+        current_date = datetime.now(timezone.utc)
+        
+        for record in remote_data:
+            row_data = record.row_data
+            control_date = row_data.get("Control date", "")
+            
+            # Filter: Control date is blank, None, or "NYR" (case-sensitive)
+            control_date_str = str(control_date).strip() if control_date else ""
+            if not control_date_str or control_date_str in ["NYR", "NONE", "NULL"]:
+                demand_dt_str = row_data.get("Demand dt")
+                
+                # Calculate pending days
+                pending_days = None
+                if demand_dt_str:
+                    try:
+                        # Parse the demand date (ISO format from database)
+                        if isinstance(demand_dt_str, str):
+                            demand_dt = datetime.fromisoformat(demand_dt_str.replace('Z', '+00:00'))
+                        else:
+                            demand_dt = demand_dt_str
+                        
+                        # Calculate difference in days
+                        if demand_dt:
+                            delta = current_date - demand_dt.replace(tzinfo=timezone.utc) if demand_dt.tzinfo is None else current_date - demand_dt
+                            pending_days = delta.days
+                    except Exception as e:
+                        print(f"Error parsing date: {e}")
+                        pending_days = None
+                
+                # Additional filter: Only include if pending_days > 60 (2 months)
+                if pending_days is not None and pending_days > 60:
+                    # Build result row
+                    result_row = {
+                        "serial_no": serial_no,
+                        "nmc_type": record.sheet_name,  # "Eng", "EOA Spares", or "VOR Spares"
+                        "category": row_data.get("Category", ""),
+                        "veh_ba_no": row_data.get("Veh BA No", ""),
+                        "formation": row_data.get("Formation", ""),
+                        "units": row_data.get("Units", ""),
+                        "maint_wksp": row_data.get("MalntWksp", ""),
+                        "item_part_no": row_data.get("ItemPart No", ""),
+                        "nomenclature": row_data.get("Nomenclature", ""),
+                        "qty": row_data.get("Qty", ""),
+                        "demand_no": row_data.get("Demand No", ""),
+                        "demand_dt": demand_dt_str,
+                        "control_no": row_data.get("Control No", ""),
+                        "control_date": control_date,
+                        "depot": row_data.get("Depot", ""),
+                        "remarks": row_data.get("Remarks", ""),
+                        "pending_days": pending_days
+                    }
+                    
+                    result.append(result_row)
+                    serial_no += 1
+        
+        return {
+            "dataset": dataset.tag,
+            "total_pending": len(result),
+            "data": result
+        }
+    
+    except Exception as e:
+        print(f"Error generating pending demands over 60 days: {e}")
         return {
             "dataset": "Error",
             "total_pending": 0,

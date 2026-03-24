@@ -276,8 +276,8 @@ async def get_data(
                     sheets_temp[record.sheet_name] = []
                 sheets_temp[record.sheet_name].append(record.row_data)
             
-            # Order sheets: Eng, EOA Spares, MUA
-            for sheet_name in ["Eng", "EOA Spares", "MUA"]:
+            # Order sheets: Eng, EOA Spares, VOR Spares
+            for sheet_name in ["Eng", "EOA Spares", "VOR Spares"]:
                 if sheet_name in sheets_temp:
                     sheets[sheet_name] = sheets_temp[sheet_name]
         

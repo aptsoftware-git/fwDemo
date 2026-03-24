@@ -21,7 +21,7 @@ const LOCAL_WORKSHOP_SHEET_TYPES = [
 const REMOTE_WORKSHOP_SHEET_TYPES = [
   { key: 'Eng', label: 'Eng' },
   { key: 'EOA Spares', label: 'EOA Spares' },
-  { key: 'MUA', label: 'MUA' },
+  { key: 'VOR Spares', label: 'VOR Spares' },
 ];
 
 const DataTabs = ({ data, tag, unitFilter }) => {
