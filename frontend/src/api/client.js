@@ -118,6 +118,16 @@ export const getAVehiclesAnalysis = async () => {
 };
 
 /**
+ * Get pending demands from Remote Workshop (December 2025)
+ * Returns demands where Control date is blank or "NVR"
+ * @returns {Promise} Pending demands data
+ */
+export const getPendingDemands = async () => {
+  const response = await apiClient.get('/analysis/pending-demands');
+  return response.data;
+};
+
+/**
  * DEMO: Load demo data from hardcoded path
  * @returns {Promise} Success message
  */
