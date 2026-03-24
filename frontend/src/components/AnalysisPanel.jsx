@@ -5,6 +5,7 @@ const AnalysisPanel = ({ datasets }) => {
   const [analysisData, setAnalysisData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   // Check if both November and December 2025 datasets exist
   const hasRequiredDatasets = datasets.some(d => d.tag === 'November 2025') && 
@@ -32,10 +33,19 @@ const AnalysisPanel = ({ datasets }) => {
 
   return (
     <div className="section">
-      <h2>'A' Vehicles Analysis</h2>
-      <p style={{ color: '#666', marginBottom: '15px' }}>
-        Compare November and December 2025 A Vehicle data to analyze changes in Authorized/Held, Eng/MUA, and NMC status.
-      </p>
+      <h2 
+        className="collapsible-header" 
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <span>'A' Vehicles Analysis</span>
+        <span className={`toggle-icon ${isExpanded ? '' : 'collapsed'}`}>▲</span>
+      </h2>
+      
+      {isExpanded && (
+        <div className="section-content">
+          <p style={{ color: '#666', marginBottom: '15px' }}>
+            Compare November and December 2025 A Vehicle data to analyze changes in Authorized/Held, Eng/MUA, and NMC status.
+          </p>
       
       <button
         onClick={handleAnalysis}
@@ -273,6 +283,8 @@ const AnalysisPanel = ({ datasets }) => {
               Total rows: {analysisData.section3.data?.length || 0}
             </div>
           </div>
+        </div>
+      )}
         </div>
       )}
     </div>

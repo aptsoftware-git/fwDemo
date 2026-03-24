@@ -129,37 +129,38 @@ function App() {
           <>
             <div className="section">
               <h2>View Data</h2>
-              
-              <DatasetSelector
-                datasets={datasets}
-                selectedTag={selectedTag}
-                onSelect={setSelectedTag}
-                label="Select Dataset"
-              />
-
-              {selectedTag && units.length > 0 && (
-                <UnitFilter
-                  units={units}
-                  selectedUnit={selectedUnit}
-                  onSelect={setSelectedUnit}
+              <div className="section-content">
+                <DatasetSelector
+                  datasets={datasets}
+                  selectedTag={selectedTag}
+                  onSelect={setSelectedTag}
+                  label="Select Dataset"
                 />
-              )}
 
-              {loading && <div className="loading">Loading data...</div>}
-              {error && <div className="error">{error}</div>}
-              
-              {data && !loading && (
-                <div style={{ marginTop: '20px' }}>
-                  <h3 style={{ marginBottom: '15px', color: '#2c3e50' }}>
-                    {data.tag} - {data.unit_filter}
-                  </h3>
-                  <DataTabs 
-                    data={data} 
-                    tag={data.tag} 
-                    unitFilter={data.unit_filter}
+                {selectedTag && units.length > 0 && (
+                  <UnitFilter
+                    units={units}
+                    selectedUnit={selectedUnit}
+                    onSelect={setSelectedUnit}
                   />
-                </div>
-              )}
+                )}
+
+                {loading && <div className="loading">Loading data...</div>}
+                {error && <div className="error">{error}</div>}
+                
+                {data && !loading && (
+                  <div style={{ marginTop: '20px' }}>
+                    <h3 style={{ marginBottom: '15px', color: '#2c3e50' }}>
+                      {data.tag} - {data.unit_filter}
+                    </h3>
+                    <DataTabs 
+                      data={data} 
+                      tag={data.tag} 
+                      unitFilter={data.unit_filter}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* DEMO: Hide Compare Datasets section

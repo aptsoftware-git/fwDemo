@@ -155,39 +155,16 @@ const ModelSelector = ({ onClear, onToggleDetails, showDetails }) => {
         </div>
       )}
 
-      <div className="header-actions" style={{ 
-        display: 'flex', 
-        gap: '10px', 
-        marginTop: '10px',
-        justifyContent: 'flex-end' 
-      }}>
+      <div className="header-actions">
         <button
           onClick={handleClear}
           className="btn-clear"
-          style={{
-            backgroundColor: '#e74c3c',
-            color: 'white',
-            border: 'none',
-            padding: '8px 16px',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px'
-          }}
         >
           Clear
         </button>
         <button
           onClick={onToggleDetails}
           className="btn-toggle-details"
-          style={{
-            backgroundColor: '#3498db',
-            color: 'white',
-            border: 'none',
-            padding: '8px 16px',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px'
-          }}
         >
           {showDetails ? 'Hide Details' : 'Show Details'}
         </button>

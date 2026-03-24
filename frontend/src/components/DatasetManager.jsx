@@ -32,7 +32,9 @@ const DatasetManager = ({ datasets, onDatasetDeleted }) => {
     return (
       <div className="section">
         <h2>Manage Datasets</h2>
-        <p style={{ color: '#666' }}>No datasets uploaded yet. Upload data to get started.</p>
+        <div className="section-content">
+          <p style={{ color: '#666' }}>No datasets uploaded yet. Upload data to get started.</p>
+        </div>
       </div>
     );
   }
@@ -40,9 +42,10 @@ const DatasetManager = ({ datasets, onDatasetDeleted }) => {
   return (
     <div className="section">
       <h2>Manage Datasets</h2>
-      <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
-        View and delete uploaded datasets. Deleting a dataset will remove all associated units and data.
-      </p>
+      <div className="section-content">
+        <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
+          View and delete uploaded datasets. Deleting a dataset will remove all associated units and data.
+        </p>
       
       <div style={{ overflowX: 'auto' }}>
         <table style={{ 
@@ -143,6 +146,7 @@ const DatasetManager = ({ datasets, onDatasetDeleted }) => {
           This action cannot be undone and will remove all associated data.
         </div>
       )}
+      </div>
     </div>
   );
 };

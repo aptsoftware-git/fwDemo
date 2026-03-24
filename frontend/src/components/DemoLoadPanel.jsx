@@ -51,31 +51,33 @@ const DemoLoadPanel = ({ onLoadSuccess }) => {
   return (
     <div className="section">
       <h2>Load Data</h2>
-      <div style={{ marginBottom: '15px', color: '#666' }}>
-        <p>Load Formation D data for November and December 2025.</p>
-        <p style={{ fontSize: '13px', marginTop: '5px' }}>
-          <strong>Data source:</strong> {dataSource}
-        </p>
-      </div>
-      
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-        <button 
-          onClick={handleLoad} 
-          disabled={loadingLoad}
-          style={{ minWidth: '120px' }}
-        >
-          {loadingLoad ? 'Loading...' : 'Load'}
-        </button>
-      </div>
-
-      {message && (
-        <div 
-          className={message.type === 'error' ? 'error' : 'success'} 
-          style={{ marginTop: '15px' }}
-        >
-          {message.text}
+      <div className="section-content">
+        <div style={{ marginBottom: '15px', color: '#666' }}>
+          <p>Load Formation D data for November and December 2025.</p>
+          <p style={{ fontSize: '13px', marginTop: '5px' }}>
+            <strong>Data source:</strong> {dataSource}
+          </p>
         </div>
-      )}
+        
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button 
+            onClick={handleLoad} 
+            disabled={loadingLoad}
+            style={{ minWidth: '120px' }}
+          >
+            {loadingLoad ? 'Loading...' : 'Load'}
+          </button>
+        </div>
+
+        {message && (
+          <div 
+            className={message.type === 'error' ? 'error' : 'success'} 
+            style={{ marginTop: '15px' }}
+          >
+            {message.text}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
