@@ -11,6 +11,7 @@ import DataTabs from './components/DataTabs';
 import ComparisonPanel from './components/ComparisonPanel';
 import DatasetManager from './components/DatasetManager';
 import ModelSelector from './components/ModelSelector';
+import AnalysisPanel from './components/AnalysisPanel';
 
 function App() {
   const [datasets, setDatasets] = useState([]);
@@ -20,6 +21,7 @@ function App() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showDetails, setShowDetails] = useState(true);
 
   // Load datasets on mount
   useEffect(() => {
@@ -107,23 +109,23 @@ function App() {
               <p>Formation Readiness State Data Analysis & Comparison</p>
             </div>
             <div className="header-controls">
-              <ModelSelector />
+              <ModelSelector onClear={loadDatasets} onToggleDetails={() => setShowDetails(!showDetails)} showDetails={showDetails} />
             </div>
           </div>
         </div>
 
-        {/* DEMO: Simplified load panel with Load and Clean buttons */}
+        {/* DEMO: Simplified load panel with Load button only */}
         <DemoLoadPanel onLoadSuccess={handleUploadSuccess} />
 
         {/* GENERIC FEATURE: Original upload panel hidden for demo
         <UploadPanel onUploadSuccess={handleUploadSuccess} />
         */}
 
-        {datasets.length > 0 && (
+        {showDetails && datasets.length > 0 && (
           <DatasetManager datasets={datasets} onDatasetDeleted={handleDatasetDeleted} />
         )}
 
-        {datasets.length > 0 && (
+        {showDetails && datasets.length > 0 && (
           <>
             <div className="section">
               <h2>View Data</h2>
@@ -166,6 +168,11 @@ function App() {
             )}
             */}
           </>
+        )}
+
+        {/* Analysis Panel for A Vehicles Comparison - Always visible when datasets exist */}
+        {datasets.length > 0 && (
+          <AnalysisPanel datasets={datasets} />
         )}
 
         {datasets.length === 0 && (

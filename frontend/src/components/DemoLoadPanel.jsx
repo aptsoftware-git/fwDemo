@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { loadDemoData, cleanDemoData } from '../api/client';
+import React, { useState, useEffect } from 'react';
+import { loadDemoData, getConfig } from '../api/client';
 
 /**
  * DEMO: Simplified panel for loading hardcoded demo data
@@ -7,8 +7,22 @@ import { loadDemoData, cleanDemoData } from '../api/client';
  */
 const DemoLoadPanel = ({ onLoadSuccess }) => {
   const [loadingLoad, setLoadingLoad] = useState(false);
-  const [loadingClean, setLoadingClean] = useState(false);
   const [message, setMessage] = useState(null);
+  const [dataSource, setDataSource] = useState('Loading...');
+
+  // Fetch config on component mount
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const config = await getConfig();
+        setDataSource(config.demo_base_path);
+      } catch (error) {
+        console.error('Failed to fetch config:', error);
+        setDataSource('Not available');
+      }
+    };
+    fetchConfig();
+  }, []);
 
   const handleLoad = async () => {
     setLoadingLoad(true);
@@ -34,65 +48,23 @@ const DemoLoadPanel = ({ onLoadSuccess }) => {
     }
   };
 
-  const handleClean = async () => {
-    if (!window.confirm('Are you sure you want to delete all data from the database? This action cannot be undone.')) {
-      return;
-    }
-
-    setLoadingClean(true);
-    setMessage(null);
-
-    try {
-      const result = await cleanDemoData();
-      setMessage({ 
-        type: 'success', 
-        text: result.message
-      });
-      
-      if (onLoadSuccess) {
-        onLoadSuccess();
-      }
-    } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.detail || error.message || 'Failed to clean data'
-      });
-    } finally {
-      setLoadingClean(false);
-    }
-  };
-
   return (
     <div className="section">
-      <h2>Load Demo Data</h2>
+      <h2>Load Data</h2>
       <div style={{ marginBottom: '15px', color: '#666' }}>
         <p>Load Formation D data for November and December 2025.</p>
         <p style={{ fontSize: '13px', marginTop: '5px' }}>
-          <strong>Data source:</strong> C:\Anu\APT\apt\army\fortwilliam\code\fwDemo\data\FRS_cleaned
+          <strong>Data source:</strong> {dataSource}
         </p>
       </div>
       
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
         <button 
           onClick={handleLoad} 
-          disabled={loadingLoad || loadingClean}
+          disabled={loadingLoad}
           style={{ minWidth: '120px' }}
         >
-          {loadingLoad ? 'Loading...' : 'Load Data'}
-        </button>
-        
-        <button 
-          onClick={handleClean} 
-          disabled={loadingLoad || loadingClean}
-          className="secondary"
-          style={{ 
-            minWidth: '120px',
-            backgroundColor: '#e74c3c',
-            color: 'white',
-            border: 'none'
-          }}
-        >
-          {loadingClean ? 'Cleaning...' : 'Clean Database'}
+          {loadingLoad ? 'Loading...' : 'Load'}
         </button>
       </div>
 

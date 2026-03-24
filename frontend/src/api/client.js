@@ -100,6 +100,24 @@ export const checkHealth = async () => {
 };
 
 /**
+ * Get application configuration
+ * @returns {Promise} Configuration object with demo_base_path and demo_formation
+ */
+export const getConfig = async () => {
+  const response = await apiClient.get('/config');
+  return response.data;
+};
+
+/**
+ * Get A Vehicles analysis report (November vs December comparison)
+ * @returns {Promise} Analysis report data
+ */
+export const getAVehiclesAnalysis = async () => {
+  const response = await apiClient.get('/analysis/a-vehicles');
+  return response.data;
+};
+
+/**
  * DEMO: Load demo data from hardcoded path
  * @returns {Promise} Success message
  */

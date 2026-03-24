@@ -2,6 +2,7 @@
 Data router for FRS Data Management System API.
 Handles all data-related endpoints.
 """
+import os
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -22,6 +23,17 @@ from config import SHEET_TYPE_ORDER
 from processors import aggregate_by_category
 
 router = APIRouter(prefix="/api", tags=["data"])
+
+
+@router.get("/config")
+async def get_config():
+    """
+    Get application configuration including demo data paths.
+    """
+    return {
+        "demo_base_path": os.getenv('DEMO_BASE_PATH', r'C:\Anu\APT\apt\army\fortwilliam\code\fwDemo\data\FRS_cleaned'),
+        "demo_formation": os.getenv('DEMO_FORMATION', 'Fmn D')
+    }
 
 
 @router.post("/upload", response_model=UploadResponse)

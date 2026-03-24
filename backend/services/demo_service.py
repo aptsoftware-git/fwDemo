@@ -13,11 +13,9 @@ from models import Dataset, Unit, SheetData, LocalWorkshop, RemoteWorkshop
 from parsers.excel_parser import parse_sheet_with_detection
 from processors.data_cleaner import clean_dataframe, dataframe_to_json, calculate_derived_fields
 
-# Hardcoded base path for demo
-DEMO_BASE_PATH = r"C:\Anu\APT\apt\army\fortwilliam\code\fwDemo\data\FRS_cleaned"
-
-# Formation to process (only Fmn D has complete data)
-DEMO_FORMATION = "Fmn D"
+# Read demo data configuration from environment variables
+DEMO_BASE_PATH = os.getenv('DEMO_BASE_PATH', r'C:\Anu\APT\apt\army\fortwilliam\code\fwDemo\data\FRS_cleaned')
+DEMO_FORMATION = os.getenv('DEMO_FORMATION', 'Fmn D')
 
 # Sheet mappings for different file types
 FORMATION_SHEETS = ["A Vehicle", "B Vehicle", "C Vehicle", "ARMT", "SA"]
