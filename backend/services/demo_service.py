@@ -8,14 +8,15 @@ from typing import Dict, List, Tuple, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
 import pandas as pd
+from decouple import config
 
 from models import Dataset, Unit, SheetData, LocalWorkshop, RemoteWorkshop
 from parsers.excel_parser import parse_sheet_with_detection
 from processors.data_cleaner import clean_dataframe, dataframe_to_json, calculate_derived_fields
 
 # Read demo data configuration from environment variables
-DEMO_BASE_PATH = os.getenv('DEMO_BASE_PATH', r'C:\Anu\APT\apt\army\fortwilliam\code\fwDemo\data\FRS_cleaned')
-DEMO_FORMATION = os.getenv('DEMO_FORMATION', 'Fmn D')
+DEMO_BASE_PATH = config('DEMO_BASE_PATH', default='../data/FRS_cleaned', cast=str)
+DEMO_FORMATION = config('DEMO_FORMATION', default='Fmn D', cast=str)
 
 # Sheet mappings for different file types
 FORMATION_SHEETS = ["A Vehicle", "B Vehicle", "C Vehicle", "ARMT", "SA"]

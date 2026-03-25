@@ -4,9 +4,10 @@ Test script to verify demo data loading
 from pathlib import Path
 from services.demo_service import get_file_by_pattern, parse_workshop_sheet, LOCAL_WORKSHOP_SHEETS, REMOTE_WORKSHOP_SHEETS
 import os
+from decouple import config
 
 # Check demo path
-DEMO_BASE_PATH = os.getenv('DEMO_BASE_PATH', r'C:\Anu\APT\apt\army\fortwilliam\code\fwDemo\data\FRS_cleaned')
+DEMO_BASE_PATH = config('DEMO_BASE_PATH', default='../data/FRS_cleaned', cast=str)
 base_path = Path(DEMO_BASE_PATH)
 
 print(f"Base path: {base_path}")

@@ -17,7 +17,7 @@ from schemas import (
 )
 from services.upload_service import process_directory
 # DEMO: Import demo service for hardcoded data loading
-from services.demo_service import load_demo_data, clean_all_data
+from services.demo_service import load_demo_data, clean_all_data, DEMO_BASE_PATH, DEMO_FORMATION
 from services.llm_service import compare_datasets as llm_compare_datasets, generate_summary
 from config import SHEET_TYPE_ORDER
 from processors import aggregate_by_category
@@ -31,8 +31,8 @@ async def get_config():
     Get application configuration including demo data paths.
     """
     return {
-        "demo_base_path": os.getenv('DEMO_BASE_PATH', r'C:\Anu\APT\apt\army\fortwilliam\code\fwDemo\data\FRS_cleaned'),
-        "demo_formation": os.getenv('DEMO_FORMATION', 'Fmn D')
+        "demo_base_path": DEMO_BASE_PATH,
+        "demo_formation": DEMO_FORMATION
     }
 
 

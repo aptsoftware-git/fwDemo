@@ -43,7 +43,7 @@ def init_db():
     Initialize database by creating all tables.
     Should be called on application startup.
     """
-    from models import Dataset, Unit, SheetData  # Import models to register them
+    from models import Dataset, Unit, SheetData, LocalWorkshop, RemoteWorkshop  # Import models to register them
     Base.metadata.create_all(bind=engine)
     print("Database tables created successfully")
 
