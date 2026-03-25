@@ -53,7 +53,7 @@ const DemoLoadPanel = ({ onLoadSuccess }) => {
       <h2>Load Data</h2>
       <div className="section-content">
         <div style={{ marginBottom: '15px', color: '#666' }}>
-          <p>Load Formation D data for November and December 2025.</p>
+          <p>Load "A Vehicle" (Formation D) data for November and December 2025.</p>
           <p style={{ fontSize: '13px', marginTop: '5px' }}>
             <strong>Data source:</strong> {dataSource}
           </p>

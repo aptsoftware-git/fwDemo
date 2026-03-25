@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
-import { getAVehiclesAnalysis } from '../api/client';
+import { getAVehiclesAnalysis, generateMailContent } from '../api/client';
 
 const AnalysisPanel = ({ datasets }) => {
   const [analysisData, setAnalysisData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isExpanded, setIsExpanded] = useState(true);
+
+  // Mail generation state
+  const [mailData, setMailData] = useState(null);
+  const [mailLoading, setMailLoading] = useState(false);
+  const [mailError, setMailError] = useState(null);
+  const [isMailExpanded, setIsMailExpanded] = useState(true);
+  const [showMailModal, setShowMailModal] = useState(false);
 
   // Check if both November and December 2025 datasets exist
   const hasRequiredDatasets = datasets.some(d => d.tag === 'November 2025') && 
@@ -25,6 +32,207 @@ const AnalysisPanel = ({ datasets }) => {
     }
   };
 
+  const handleGenerateMail = async () => {
+    setMailLoading(true);
+    setMailError(null);
+    try {
+      const result = await generateMailContent();
+      setMailData(result);
+      setShowMailModal(true);
+    } catch (err) {
+      setMailError(err.response?.data?.detail || 'Failed to generate mail content');
+      setMailData(null);
+    } finally {
+      setMailLoading(false);
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (!mailData) return;
+    
+    const printWindow = window.open('', '_blank');
+    const htmlContent = generateMailHTML(mailData);
+    
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.focus();
+    
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
+  };
+
+  const generateMailHTML = (data) => {
+    const currentDate = new Date();
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentMonth = monthNames[currentDate.getMonth()];
+    const currentYear = currentDate.getFullYear();
+    const formattedDate = `${currentDate.getDate().toString().padStart(2, '0')}-${currentMonth}-${currentYear}`;
+    
+    // Get dataset month from section5 or section6 data
+    const datasetTag = data.section5?.dataset || data.section6?.dataset || '';
+    const monthMatch = datasetTag.match(/(November|December|January|February|March|April|May|June|July|August|September|October)\s+(\d{4})/i);
+    const datasetMonth = monthMatch ? `${monthMatch[1].toUpperCase()} ${monthMatch[2]}` : '______';
+    
+    let section5TableRows = '';
+    if (data.section5.data && data.section5.data.length > 0) {
+      section5TableRows = data.section5.data.map(row => `
+        <tr>
+          <td style="border: 1px solid #000; padding: 5px; text-align: center;">${row.serial_no}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.nmc_type}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.unit || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.dependent_workshop || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.equipment || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.tk_ba_no || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.sys_sub_sys || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.nature_of_defect || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.defect_dt ? new Date(row.defect_dt).toLocaleDateString('en-GB') : '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px; text-align: center;">${row.pending_days ? `>${Math.floor(row.pending_days / 30)} months` : '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px; word-wrap: break-word; max-width: 200px;">${row.reasons || '-'}</td>
+        </tr>
+      `).join('');
+    }
+    
+    let section6TableRows = '';
+    if (data.section6.data && data.section6.data.length > 0) {
+      section6TableRows = data.section6.data.map(row => `
+        <tr>
+          <td style="border: 1px solid #000; padding: 5px; text-align: center;">${row.serial_no}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.nmc_type}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.category || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.veh_ba_no || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.formation || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.units || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.maint_wksp || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.item_part_no || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.nomenclature || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px; text-align: center;">${row.qty || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.demand_no || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.demand_dt ? new Date(row.demand_dt).toLocaleDateString('en-GB') : '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.control_no || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.control_date || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px;">${row.depot || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px; word-wrap: break-word; max-width: 200px;">${row.remarks || '-'}</td>
+          <td style="border: 1px solid #000; padding: 5px; text-align: center;">${row.pending_days ? `>${Math.floor(row.pending_days / 30)} months` : '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mail Regarding 'A' Vehicle</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; font-size: 14px; background: white; color: #000; }
+    .mail-header { margin-bottom: 20px; background: none; padding: 0; }
+    .underline { display: inline-block; border-bottom: 1px solid #000; min-width: 150px; text-align: center; padding: 0 5px; }
+    .mail-content { margin: 20px 0; text-align: justify; }
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 11px; }
+    th { border: 1px solid #000; padding: 8px; background-color: #f0f0f0; font-weight: bold; text-align: left; }
+    td { border: 1px solid #000; padding: 5px; }
+    .mail-signature { margin-top: 40px; text-align: left; }
+    .mail-copy-to { margin-top: 20px; }
+    @media print {
+      body { padding: 10px; }
+      table { font-size: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="mail-header">
+    <p style="margin: 5px 0; color: #000;">HQ <span class="underline">&nbsp;</span> Cmd (EME)</p>
+    <p style="margin: 5px 0; color: #000;">Pin 908542</p>
+    <p style="margin: 5px 0; color: #000;">C/O 99 APO</p>
+    <p style="margin: 15px 0 5px 0; color: #000;">0037/AE/Tech Cell dt ${formattedDate}</p>
+    <p style="margin: 15px 0 5px 0; color: #000;">HQ <span class="underline">&nbsp;</span> Corps(EME)</p>
+    <p style="margin: 5px 0; color: #000;">Pin <span class="underline">&nbsp;</span></p>
+    <p style="margin: 5px 0; color: #000;">C/O 99 APO</p>
+  </div>
+
+  <div class="mail-content">
+    <br/>
+    <p style="text-align: center; margin: 20px 0; color: #000;"><strong>ANOMALIES IN FRS (A VEHICLES) FOR THE MONTH OF ${datasetMonth}</strong></p>
+    
+    <p style="margin: 15px 0; color: #000;">1. Please refer to the FRS of your Formation D for the month of ${datasetMonth}</p>
+    
+    <p style="margin: 15px 0; color: #000;">2. The following aspects have not been updated/mentioned incorrectly and require your attention: -</p>
+    
+    <p style="margin: 15px 0 10px 40px; color: #000;">2.1. Demands not controlled. The following demands have not been controlled even after two months</p>
+    
+    ${section6TableRows ? `
+    <table>
+      <thead>
+        <tr>
+          <th>Ser</th>
+          <th>NMC Type</th>
+          <th>Category</th>
+          <th>Veh BA No</th>
+          <th>Formation</th>
+          <th>Units</th>
+          <th>Maint Wksp</th>
+          <th>Item/Part No</th>
+          <th>Nomenclature</th>
+          <th>Qty</th>
+          <th>Demand No</th>
+          <th>Demand Date</th>
+          <th>Control No</th>
+          <th>Control Date</th>
+          <th>Depot</th>
+          <th>Remarks</th>
+          <th>Pending (Months)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${section6TableRows}
+      </tbody>
+    </table>
+    ` : '<p style="margin-left: 40px; color: #000;"><em>No demands pending for over 2 months.</em></p>'}
+    
+    <p style="margin: 15px 0 10px 40px; color: #000;">2.2. Equipment pending for repairs for over three months</p>
+    
+    ${section5TableRows ? `
+    <table>
+      <thead>
+        <tr>
+          <th>Ser</th>
+          <th>NMC Type</th>
+          <th>Unit</th>
+          <th>Dependent Workshop</th>
+          <th>Equipment</th>
+          <th>Tk BA No</th>
+          <th>Sys/Sub Sys</th>
+          <th>Nature of Defect</th>
+          <th>Defect Date</th>
+          <th>Pending Repairs Since (Months)</th>
+          <th>Reasons</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${section5TableRows}
+      </tbody>
+    </table>
+    ` : '<p style="margin-left: 40px; color: #000;"><em>No equipment pending repairs for over 3 months.</em></p>'}
+    
+    <p style="margin: 15px 0; color: #000;">3. Kindly take corrective action & re-submit your FRS at the earliest. BEME is requested to speak to MGEME with respect to all "demands not controlled" and "equipment pending for repairs for over three months".</p>
+    <br/><br/>
+  </div>
+
+  <div class="mail-signature">
+    <p style="margin: 5px 0; color: #000;">(<span class="underline">&nbsp;</span>)</p>
+    <p style="margin: 5px 0; color: #000;">Col EME</p>
+    <p style="margin: 5px 0; color: #000;">For MGEME</p>
+  </div>
+
+  <div class="mail-copy-to">
+    <br/>
+    <p style="margin: 5px 0; color: #000;"><strong>Copy to:</strong><br/><br/><span class="underline">&nbsp;</span> EME Brigadier – For info and necessary action please.</p>
+  </div>
+</body>
+</html>
+    `;
+  };
+
 
 
   if (!hasRequiredDatasets) {
@@ -32,6 +240,7 @@ const AnalysisPanel = ({ datasets }) => {
   }
 
   return (
+    <>
     <div className="section">
       <h2 
         className="collapsible-header" 
@@ -44,7 +253,7 @@ const AnalysisPanel = ({ datasets }) => {
       {isExpanded && (
         <div className="section-content">
           <p style={{ color: '#666', marginBottom: '15px' }}>
-            Compare November and December 2025 A Vehicle data to analyze changes in Authorized/Held, Eng/MUA, and NMC status.
+            Compare November and December 2025 <strong>A Vehicle</strong> data to analyze changes in Authorized/Held, Eng/MUA, and NMC status.
           </p>
       
       <button
@@ -127,34 +336,67 @@ const AnalysisPanel = ({ datasets }) => {
                       </td>
                     </tr>
                   ) : (
-                    (analysisData.section1.data || []).map((row) => (
-                      <tr key={row.serial_no} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ padding: '10px' }}>{row.serial_no}</td>
-                        <td style={{ padding: '10px' }}>{row.equipment}</td>
-                        <td style={{ padding: '10px' }}>{row.unit}</td>
-                        <td style={{ padding: '10px', textAlign: 'center', borderLeft: '1px solid #eee' }}>{row.previous_authorized}</td>
-                        <td style={{ padding: '10px', textAlign: 'center' }}>{row.previous_held}</td>
-                        <td style={{ padding: '10px', textAlign: 'center', borderLeft: '1px solid #eee' }}>{row.current_authorized}</td>
-                        <td style={{ padding: '10px', textAlign: 'center' }}>{row.current_held}</td>
-                        <td style={{ 
-                          padding: '10px', 
-                          textAlign: 'center', 
-                          borderLeft: '1px solid #eee',
-                          color: row.delta_authorized > 0 ? '#27ae60' : row.delta_authorized < 0 ? '#e74c3c' : 'inherit',
-                          fontWeight: row.delta_authorized !== 0 ? 'bold' : 'normal'
-                        }}>
-                          {row.delta_authorized > 0 ? '+' : ''}{row.delta_authorized}
-                        </td>
-                        <td style={{ 
-                          padding: '10px', 
-                          textAlign: 'center',
-                          color: row.delta_held > 0 ? '#27ae60' : row.delta_held < 0 ? '#e74c3c' : 'inherit',
-                          fontWeight: row.delta_held !== 0 ? 'bold' : 'normal'
-                        }}>
-                          {row.delta_held > 0 ? '+' : ''}{row.delta_held}
-                        </td>
-                      </tr>
-                    ))
+                    (analysisData.section1.data || []).map((row) => {
+                      // Check if Auth < Held for both Previous and Current
+                      const shouldHighlight = (row.previous_authorized < row.previous_held) && 
+                                             (row.current_authorized < row.current_held);
+                      const highlightColor = shouldHighlight ? '#fff3cd' : 'transparent'; // Yellow highlight
+                      
+                      return (
+                        <tr key={row.serial_no} style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '10px' }}>{row.serial_no}</td>
+                          <td style={{ padding: '10px' }}>{row.equipment}</td>
+                          <td style={{ padding: '10px' }}>{row.unit}</td>
+                          <td style={{ 
+                            padding: '10px', 
+                            textAlign: 'center', 
+                            borderLeft: '1px solid #eee',
+                            backgroundColor: highlightColor
+                          }}>
+                            {row.previous_authorized}
+                          </td>
+                          <td style={{ 
+                            padding: '10px', 
+                            textAlign: 'center',
+                            backgroundColor: highlightColor
+                          }}>
+                            {row.previous_held}
+                          </td>
+                          <td style={{ 
+                            padding: '10px', 
+                            textAlign: 'center', 
+                            borderLeft: '1px solid #eee',
+                            backgroundColor: highlightColor
+                          }}>
+                            {row.current_authorized}
+                          </td>
+                          <td style={{ 
+                            padding: '10px', 
+                            textAlign: 'center',
+                            backgroundColor: highlightColor
+                          }}>
+                            {row.current_held}
+                          </td>
+                          <td style={{ 
+                            padding: '10px', 
+                            textAlign: 'center', 
+                            borderLeft: '1px solid #eee',
+                            color: row.delta_authorized > 0 ? '#27ae60' : row.delta_authorized < 0 ? '#e74c3c' : 'inherit',
+                            fontWeight: row.delta_authorized !== 0 ? 'bold' : 'normal'
+                          }}>
+                            {row.delta_authorized > 0 ? '+' : ''}{row.delta_authorized}
+                          </td>
+                          <td style={{ 
+                            padding: '10px', 
+                            textAlign: 'center',
+                            color: row.delta_held > 0 ? '#27ae60' : row.delta_held < 0 ? '#e74c3c' : 'inherit',
+                            fontWeight: row.delta_held !== 0 ? 'bold' : 'normal'
+                          }}>
+                            {row.delta_held > 0 ? '+' : ''}{row.delta_held}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -280,7 +522,7 @@ const AnalysisPanel = ({ datasets }) => {
                           backgroundColor: '#fff3cd',
                           fontWeight: 'bold'
                         }}>
-                          Pending (Days)
+                          Pending (Months)
                         </th>
                       </tr>
                     </thead>
@@ -336,7 +578,7 @@ const AnalysisPanel = ({ datasets }) => {
                               fontWeight: 'bold',
                               color: row.pending_days > 90 ? '#c0392b' : row.pending_days > 60 ? '#d68910' : '#27ae60'
                             }}>
-                              {row.pending_days !== null ? row.pending_days : '-'}
+                              {row.pending_days !== null ? `>${Math.floor(row.pending_days / 30)} months` : '-'}
                             </td>
                           </tr>
                         );
@@ -437,7 +679,7 @@ const AnalysisPanel = ({ datasets }) => {
                           backgroundColor: '#fff3cd',
                           fontWeight: 'bold'
                         }}>
-                          Pending Repairs Since (Days)
+                          Pending Repairs Since (Months)
                         </th>
                         <th style={{ padding: '10px', textAlign: 'left', minWidth: '400px' }}>Reasons</th>
                       </tr>
@@ -487,7 +729,7 @@ const AnalysisPanel = ({ datasets }) => {
                               fontWeight: 'bold',
                               color: row.pending_days > 180 ? '#c0392b' : row.pending_days > 120 ? '#d68910' : '#27ae60'
                             }}>
-                              {row.pending_days !== null ? row.pending_days : '-'}
+                              {row.pending_days !== null ? `>${Math.floor(row.pending_days / 30)} months` : '-'}
                             </td>
                             <td style={{ padding: '10px', maxWidth: '400px', wordWrap: 'break-word' }}>
                               {row.reasons || '-'}
@@ -547,7 +789,7 @@ const AnalysisPanel = ({ datasets }) => {
                           backgroundColor: '#fff3cd',
                           fontWeight: 'bold'
                         }}>
-                          Pending (Days)
+                          Pending (Months)
                         </th>
                       </tr>
                     </thead>
@@ -603,7 +845,7 @@ const AnalysisPanel = ({ datasets }) => {
                               fontWeight: 'bold',
                               color: row.pending_days > 90 ? '#c0392b' : row.pending_days > 60 ? '#d68910' : '#27ae60'
                             }}>
-                              {row.pending_days !== null ? row.pending_days : '-'}
+                              {row.pending_days !== null ? `>${Math.floor(row.pending_days / 30)} months` : '-'}
                             </td>
                           </tr>
                         );
@@ -622,6 +864,146 @@ const AnalysisPanel = ({ datasets }) => {
       </div>
     )}
     </div>
+
+    {/* Mail Generation Section */}
+    <div className="section" style={{ marginTop: '20px' }}>
+      <h2 
+        className="collapsible-header" 
+        onClick={() => setIsMailExpanded(!isMailExpanded)}
+      >
+        <span>Generate Mail content Regarding 'A' Vehicle</span>
+        <span className={`toggle-icon ${isMailExpanded ? '' : 'collapsed'}`}>▲</span>
+      </h2>
+      
+      {isMailExpanded && (
+        <div className="section-content">
+          <p style={{ color: '#666', marginBottom: '15px' }}>
+            Generate official mail content with equipment pending repairs and demands not controlled for over 2 months.
+          </p>
+      
+          <button
+            onClick={handleGenerateMail}
+            disabled={mailLoading}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#27ae60',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: mailLoading ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              opacity: mailLoading ? 0.6 : 1
+            }}
+          >
+            {mailLoading ? 'Generating Mail...' : 'Generate Mail'}
+          </button>
+
+          {mailError && (
+            <div style={{ 
+              marginTop: '15px', 
+              padding: '12px', 
+              backgroundColor: '#fee', 
+              color: '#c33',
+              borderRadius: '4px'
+            }}>
+              {mailError}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+
+    {/* Mail Preview Modal */}
+    {showMailModal && mailData && (
+      <div 
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}
+        onClick={() => setShowMailModal(false)}
+      >
+        <div 
+          style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            maxWidth: '95%',
+            maxHeight: '90%',
+            overflow: 'auto',
+            padding: '20px',
+            position: 'relative'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ 
+            position: 'sticky', 
+            top: 0, 
+            backgroundColor: 'white', 
+            zIndex: 1,
+            paddingBottom: '15px',
+            borderBottom: '2px solid #3498db',
+            marginBottom: '20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <h3 style={{ margin: 0, color: '#2c3e50' }}>Mail Preview</h3>
+            <div>
+              <button
+                onClick={handleDownloadPDF}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#e74c3c',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  marginRight: '10px'
+                }}
+              >
+                Download PDF
+              </button>
+              <button
+                onClick={() => setShowMailModal(false)}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#95a5a6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+
+          <div 
+            style={{ 
+              fontFamily: 'Arial, sans-serif', 
+              lineHeight: '1.6',
+              fontSize: '14px'
+            }}
+            dangerouslySetInnerHTML={{ __html: generateMailHTML(mailData) }}
+          />
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

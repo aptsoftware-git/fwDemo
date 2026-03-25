@@ -684,3 +684,40 @@ async def get_pending_demands(db: Session = Depends(get_db)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/generate-mail")
+async def generate_mail_content(db: Session = Depends(get_db)):
+    """
+    Generate mail content regarding 'A' Vehicle with tables from sections 5 and 6.
+    
+    Returns:
+        - section5: Equipment pending repairs for over three months (Local Workshop)
+        - section6: Demands not placed or not controlled for over 2 months (Remote Workshop)
+        - mail_template: HTML template structure for the mail
+    """
+    try:
+        # Get section 5 data: Equipment pending repairs for over three months
+        section5_repairs = generate_pending_repairs(db)
+        
+        # Get section 6 data: Demands not placed or not controlled for over 2 months
+        section6_demands_over_60 = generate_pending_demands_over_60(db)
+        
+        return {
+            "section5": {
+                "title": "Equipment pending repairs for over three months",
+                "data": section5_repairs["data"],
+                "dataset": section5_repairs["dataset"],
+                "total_pending": section5_repairs["total_pending"]
+            },
+            "section6": {
+                "title": "Demands not placed or not controlled for over 2 months",
+                "data": section6_demands_over_60["data"],
+                "dataset": section6_demands_over_60["dataset"],
+                "total_pending": section6_demands_over_60["total_pending"]
+            }
+        }
+    
+    except Exception as e:
+        print(f"Error generating mail content: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

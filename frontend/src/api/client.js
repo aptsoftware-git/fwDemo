@@ -118,6 +118,15 @@ export const getAVehiclesAnalysis = async () => {
 };
 
 /**
+ * Generate mail content regarding 'A' Vehicle with tables from sections 5 and 6
+ * @returns {Promise} Mail content data with section5 and section6
+ */
+export const generateMailContent = async () => {
+  const response = await apiClient.get('/analysis/generate-mail');
+  return response.data;
+};
+
+/**
  * Get pending demands from Remote Workshop (December 2025)
  * Returns demands where Control date is blank or "NVR"
  * @returns {Promise} Pending demands data
